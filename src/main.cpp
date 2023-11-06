@@ -13,15 +13,20 @@
 using namespace ge::gl;
 
 /**
- * @brief 
- * 
- * @param path 
- * @return std::string 
+ * @brief
+ *
+ * @param path
+ * @return std::string
  */
 std::string loadFile(std::string path)
 {
     std::ifstream file(path);
-    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << path << std::endl;
+        return "";
+    }
+
+    std::string content(std::istreambuf_iterator<char>(file), {});
     return content;
 }
 
@@ -29,9 +34,22 @@ std::string loadFile(std::string path)
 GLuint createShader(GLenum type, std::string const& src)
 {
     auto id            = glCreateShader(type);
-    char const* srcs[] = { src.data() };
+    char const* srcs[] = { src.c_str() };
     glShaderSource(id, 1, srcs, nullptr);
     glCompileShader(id);
+
+    // get compilation status
+    int compileStatus;
+    glGetShaderiv(id, GL_COMPILE_STATUS, &compileStatus);
+    if (compileStatus != GL_TRUE) {
+        // get message info length
+        GLint msgLen;
+        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &msgLen);
+        auto message = std::string(msgLen, ' ');
+        // get message
+        glGetShaderInfoLog(id, msgLen, nullptr, message.data());
+        std::cerr << "Shader compilation error\n" << message << std::endl;
+    }
     return id;
 }
 
@@ -41,6 +59,19 @@ GLuint createProgram(std::vector<GLuint> const& shaders)
     for (auto const& shader : shaders)
         glAttachShader(id, shader);
     glLinkProgram(id);
+
+    // get link status
+    GLint linkStatus;
+    glGetProgramiv(id, GL_LINK_STATUS, &linkStatus);
+    if (linkStatus != GL_TRUE) {
+        // get message info length
+        GLint msgLen;
+        glGetProgramiv(id, GL_INFO_LOG_LENGTH, &msgLen);
+        auto message = std::string(msgLen, ' ');
+        glGetProgramInfoLog(id, msgLen, nullptr, message.data());
+        std::cerr << message << std::endl;
+    }
+
     return id;
 }
 
@@ -70,11 +101,20 @@ int main(int argc, char* argv[])
     auto context = SDL_GL_CreateContext(window);
 
 
+    std::vector<int> data = { 0, 1, 2 };
+    GLuint vbo; // buffer handle
+    glCreateBuffers(1, &vbo);
+    // allocate buffer and upload data
+    glNamedBufferData(vbo, data.size() * sizeof(int), data.data(), GL_DYNAMIC_DRAW);
     GLuint vao;
     glCreateVertexArrays(1, &vao);
+    glVertexArrayAttribBinding(vao, 0, 0);
+    glEnableVertexArrayAttrib(vao, 0);
+    glVertexArrayAttribFormat(vao, 0, 1, GL_INT, GL_FALSE, 0);
+    glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(int));
 
-    auto vsSrc = loadFile("shaders/vertex_shader.vs");
-    auto fsSrc = loadFile("shaders/fragment_shader.fs");
+    auto vsSrc = loadFile("../src/shaders/vertex_shader.vs");
+    auto fsSrc = loadFile("../src/shaders/fragment_shader.fs");
 
     auto vShader = createShader(GL_VERTEX_SHADER, vsSrc);
     auto fShader = createShader(GL_FRAGMENT_SHADER, fsSrc);

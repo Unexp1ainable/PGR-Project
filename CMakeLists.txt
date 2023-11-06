@@ -20,6 +20,9 @@ add_subdirectory(libs/SDL2-2.28.5)
 add_subdirectory(libs/glm)
 add_subdirectory(libs/geGL)
 
+# TODO add custom command that embeds shaders into the code
+
+
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 target_link_libraries(${PROJECT_NAME} SDL2-static geGL::geGL glm)
