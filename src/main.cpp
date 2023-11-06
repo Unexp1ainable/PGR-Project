@@ -9,26 +9,10 @@
 #include <geGL/StaticCalls.h>
 #include <geGL/geGL.h>
 
+#include "generated/shaders/vertex_shader.h"
+#include "generated/shaders/fragment_shader.h"
 
 using namespace ge::gl;
-
-/**
- * @brief
- *
- * @param path
- * @return std::string
- */
-std::string loadFile(std::string path)
-{
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open file: " << path << std::endl;
-        return "";
-    }
-
-    std::string content(std::istreambuf_iterator<char>(file), {});
-    return content;
-}
 
 
 GLuint createShader(GLenum type, std::string const& src)
@@ -113,8 +97,8 @@ int main(int argc, char* argv[])
     glVertexArrayAttribFormat(vao, 0, 1, GL_INT, GL_FALSE, 0);
     glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(int));
 
-    auto vsSrc = loadFile("../src/shaders/vertex_shader.vs");
-    auto fsSrc = loadFile("../src/shaders/fragment_shader.fs");
+    auto vsSrc = VERTEX_SHADER;
+    auto fsSrc = FRAGMENT_SHADER;
 
     auto vShader = createShader(GL_VERTEX_SHADER, vsSrc);
     auto fShader = createShader(GL_FRAGMENT_SHADER, fsSrc);

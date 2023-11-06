@@ -20,10 +20,29 @@ add_subdirectory(libs/SDL2-2.28.5)
 add_subdirectory(libs/glm)
 add_subdirectory(libs/geGL)
 
-# TODO add custom command that embeds shaders into the code
+
+file(GLOB SHADER_PATHS "src/shaders/*")
+message("SHADERS ${SHADER_PATHS}")
+
+# Run stringify.cmake when anything in folder src/shaders changes
+foreach(SOURCE_PATH ${SHADER_PATHS})
+    get_filename_component(FILE_NAME ${SOURCE_PATH} NAME_WE)
+    set(TARGET_PATH ${CMAKE_SOURCE_DIR}/src/generated/shaders/${FILE_NAME}.h)
+    list(APPEND SHADER_FILES ${TARGET_PATH})
+
+    message("SHADER ${SOURCE_PATH}")
+    add_custom_command(
+        OUTPUT ${TARGET_PATH}
+        COMMAND ${CMAKE_COMMAND} -DTARGET=${TARGET_PATH} -DSOURCE=${SOURCE_PATH} -P ${CMAKE_SOURCE_DIR}/stringify.cmake
+        DEPENDS ${SOURCE_PATH}
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        VERBATIM
+    )
+    
+endforeach()
 
 
-add_executable(${PROJECT_NAME} ${SOURCES})
+add_executable(${PROJECT_NAME} ${SOURCES} ${SHADER_FILES})
 
 target_link_libraries(${PROJECT_NAME} SDL2-static geGL::geGL glm)
 
