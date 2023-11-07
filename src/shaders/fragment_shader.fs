@@ -14,18 +14,18 @@ struct Hit {
 };
 
 uniform vec3 lightPosition = vec3(100,100,-100);
-Sphere test = Sphere(vec3(0, 0, 2), 0.2);
+uniform Sphere sphere = Sphere(vec3(0, 0, 2), 0.2);
 
 Hit traceRay(vec3 ray) {
     float a = dot(ray, ray);
-    float b = 2 * dot(ray, test.center);
-    float c = dot(test.center, test.center) - test.radius * test.radius;
+    float b = 2 * dot(ray, sphere.center);
+    float c = dot(sphere.center, sphere.center) - sphere.radius * sphere.radius;
     float d = b * b - 4 * a * c;
     if (d < 0) {
         return Hit(false, vec3(0, 0, 0));
     }
-    float t = (-b - sqrt(d)) / (2 * a);
-    return Hit(true, ray * -t);
+    float t = (b - sqrt(d)) / (2 * a);
+    return Hit(true, ray * t);
 }
 
 void main() 
@@ -39,7 +39,7 @@ void main()
 
     Hit hit = traceRay(vec3(gl_FragCoord.x/bigger-0.5*waspect, gl_FragCoord.y/bigger-0.5*haspect, 1));
     if (hit.hit) {
-        vec3 normal = normalize(test.center - hit.pos);
+        vec3 normal = normalize(hit.pos- sphere.center);
         vec3 surface2light = normalize(lightPosition - hit.pos);
         float diffuse = max(dot(normal,surface2light),0.1f);
         fColor = vec4(1.*diffuse, 0, 0, 1);

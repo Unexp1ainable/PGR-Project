@@ -1,19 +1,22 @@
+#include <SDL2/SDL_events.h>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
 
+#include "SDL_keycode.h"
 #include "common.h"
+#include "imgui_impl_opengl3.h"
 #include <SDL.h>
 #include <geGL/Generated/OpenGLConstants.h>
 #include <geGL/StaticCalls.h>
 #include <geGL/geGL.h>
 #include <glm/glm.hpp>
 #include <imgui.h>
-#include "imgui_impl_opengl3.h"
 #include <imgui_impl_sdl2.h>
 
+#include "camera/freelook_camera.h"
 #include "generated/shaders/fragment_shader.h"
 #include "generated/shaders/vertex_shader.h"
 #include "imgui_stuff.h"
@@ -24,37 +27,57 @@ using namespace ge::gl;
 
 void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
 {
-    UniformStore store;
+    UniformStore uniforms;
     UniformSynchronizer synchronizer(prg);
-
-    bool running = true;
+    FreeLookCamera camera {};
+    float sensitivity = 0.01;
+    bool running      = true;
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT)
+            if (event.type == SDL_QUIT) {
                 running = false;
-            // (Where your code calls SDL_PollEvent())
-            ImGui_ImplSDL2_ProcessEvent(&event); // Forward your event to backend
-        }
-        synchronizer.syncUniforms(store);
+            } else if (event.type == SDL_KEYDOWN) {
 
-        // (After event loop)
-        // Start the Dear ImGui frame
+                switch (event.key.keysym.sym) {
+                    case SDLK_w:
+                        camera.forward(sensitivity);
+                        break;
+                    case SDLK_a:
+                        camera.left(sensitivity);
+                        break;
+                    case SDLK_s:
+                        camera.back(sensitivity);
+                        break;
+                    case SDLK_d:
+                        camera.right(sensitivity);
+                        break;
+                    case SDLK_SPACE:
+                        camera.up(sensitivity);
+                        break;
+                    case SDLK_LSHIFT:
+                        camera.down(sensitivity);
+                        break;
+                }
+            }
+
+            ImGui_ImplSDL2_ProcessEvent(&event); // Forward event to backend
+        }
+        // Update the uniforms
+        synchronizer.syncUniforms(uniforms, camera.getView());
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
         // ImGui::ShowDemoWindow(); // Show demo window! :)
-        drawGui(store);
+        drawGui(uniforms);
 
 
-        glClearColor(0, 0.5, 0, 1);
+        glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
-
         glBindVertexArray(vao);
-
         glUseProgram(prg);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
-
         glBindVertexArray(0);
 
         ImGui::Render();
@@ -81,8 +104,8 @@ int main(int argc, char* argv[])
     ge::gl::init();
 
     auto sdlGuard = SDL_Guard();
-    auto window  = sdlGuard.createWindow();
-    auto context = sdlGuard.getContext();
+    auto window   = sdlGuard.createWindow();
+    auto context  = sdlGuard.getContext();
 
     auto imGuiGuard = ImGui_Guard(window, context);
 
