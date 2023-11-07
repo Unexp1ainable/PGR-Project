@@ -25,6 +25,8 @@ using namespace ge::gl;
 void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
 {
     UniformStore store;
+    UniformSynchronizer synchronizer(prg);
+
     bool running = true;
     while (running) {
         SDL_Event event;
@@ -34,7 +36,7 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
             // (Where your code calls SDL_PollEvent())
             ImGui_ImplSDL2_ProcessEvent(&event); // Forward your event to backend
         }
-
+        synchronizer.syncUniforms(store);
 
         // (After event loop)
         // Start the Dear ImGui frame
@@ -62,7 +64,6 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
 }
 
 
-// load file specified by path and return content as string
 std::string loadFile(std::string path)
 {
     std::ifstream file(path);
@@ -73,6 +74,7 @@ std::string loadFile(std::string path)
     buffer << file.rdbuf();
     return buffer.str();
 }
+
 
 int main(int argc, char* argv[])
 {

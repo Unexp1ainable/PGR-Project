@@ -26,7 +26,7 @@ ImGui_Guard::~ImGui_Guard()
 void drawGui(UniformStore& store)
 {
     ImGui::Begin("Uniforms");
-    ImGui::SliderFloat3("lightPosition", glm::value_ptr(store.lightPosition), -10., 10.);
+    ImGui::SliderFloat3("lightPosition", glm::value_ptr(store.lightPosition), -100., 100.);
     ImGui::End();
 }
 
