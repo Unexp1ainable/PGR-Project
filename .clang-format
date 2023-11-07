@@ -10,5 +10,5 @@
     AllowAllParametersOfDeclarationOnNextLine: false,
     AlignAfterOpenBracket: BlockIndent,
     IndentCaseLabels: true,
-    AllowShortFunctionsOnASingleLine: None
+    AllowShortFunctionsOnASingleLine: true
 }

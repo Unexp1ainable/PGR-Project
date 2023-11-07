@@ -1,130 +1,102 @@
-#include "SDL_video.h"
 #include <fstream>
-#include <geGL/Generated/OpenGLConstants.h>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
+#include "common.h"
 #include <SDL.h>
+#include <geGL/Generated/OpenGLConstants.h>
 #include <geGL/StaticCalls.h>
 #include <geGL/geGL.h>
+#include <glm/glm.hpp>
+#include <imgui.h>
+#include "imgui_impl_opengl3.h"
+#include <imgui_impl_sdl2.h>
 
-#include "generated/shaders/vertex_shader.h"
 #include "generated/shaders/fragment_shader.h"
+#include "generated/shaders/vertex_shader.h"
+#include "imgui_stuff.h"
+#include "opengl_stuff.h"
+#include "sdl_stuff.h"
 
 using namespace ge::gl;
 
-
-GLuint createShader(GLenum type, std::string const& src)
+void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
 {
-    auto id            = glCreateShader(type);
-    char const* srcs[] = { src.c_str() };
-    glShaderSource(id, 1, srcs, nullptr);
-    glCompileShader(id);
-
-    // get compilation status
-    int compileStatus;
-    glGetShaderiv(id, GL_COMPILE_STATUS, &compileStatus);
-    if (compileStatus != GL_TRUE) {
-        // get message info length
-        GLint msgLen;
-        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &msgLen);
-        auto message = std::string(msgLen, ' ');
-        // get message
-        glGetShaderInfoLog(id, msgLen, nullptr, message.data());
-        std::cerr << "Shader compilation error\n" << message << std::endl;
-    }
-    return id;
-}
-
-GLuint createProgram(std::vector<GLuint> const& shaders)
-{
-    auto id = glCreateProgram();
-    for (auto const& shader : shaders)
-        glAttachShader(id, shader);
-    glLinkProgram(id);
-
-    // get link status
-    GLint linkStatus;
-    glGetProgramiv(id, GL_LINK_STATUS, &linkStatus);
-    if (linkStatus != GL_TRUE) {
-        // get message info length
-        GLint msgLen;
-        glGetProgramiv(id, GL_INFO_LOG_LENGTH, &msgLen);
-        auto message = std::string(msgLen, ' ');
-        glGetProgramInfoLog(id, msgLen, nullptr, message.data());
-        std::cerr << message << std::endl;
-    }
-
-    return id;
-}
-
-SDL_Window* createWindow()
-{
-    auto window = SDL_CreateWindow(
-        "PGR_Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 768, SDL_WINDOW_OPENGL
-    );
-
-    uint32_t version = 460; // context version
-    uint32_t profile = SDL_GL_CONTEXT_PROFILE_CORE; // context profile
-    uint32_t flags   = SDL_GL_CONTEXT_DEBUG_FLAG; // context flags
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, version / 100);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, (version % 100) / 10);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, profile);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
-
-    return window;
-}
-
-int main(int argc, char* argv[])
-{
-    SDL_Init(SDL_INIT_VIDEO);
-    ge::gl::init();
-
-    auto window  = createWindow();
-    auto context = SDL_GL_CreateContext(window);
-
-
-    std::vector<int> data = { 0, 1, 2 };
-    GLuint vbo; // buffer handle
-    glCreateBuffers(1, &vbo);
-    // allocate buffer and upload data
-    glNamedBufferData(vbo, data.size() * sizeof(int), data.data(), GL_DYNAMIC_DRAW);
-    GLuint vao;
-    glCreateVertexArrays(1, &vao);
-    glVertexArrayAttribBinding(vao, 0, 0);
-    glEnableVertexArrayAttrib(vao, 0);
-    glVertexArrayAttribFormat(vao, 0, 1, GL_INT, GL_FALSE, 0);
-    glVertexArrayVertexBuffer(vao, 0, vbo, 0, sizeof(int));
-
-    auto vsSrc = VERTEX_SHADER;
-    auto fsSrc = FRAGMENT_SHADER;
-
-    auto vShader = createShader(GL_VERTEX_SHADER, vsSrc);
-    auto fShader = createShader(GL_FRAGMENT_SHADER, fsSrc);
-
-    GLuint prg = createProgram({ vShader, fShader });
-
+    UniformStore store;
     bool running = true;
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT)
                 running = false;
+            // (Where your code calls SDL_PollEvent())
+            ImGui_ImplSDL2_ProcessEvent(&event); // Forward your event to backend
         }
+
+
+        // (After event loop)
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+        // ImGui::ShowDemoWindow(); // Show demo window! :)
+        drawGui(store);
+
+
         glClearColor(0, 0.5, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glBindVertexArray(vao);
 
         glUseProgram(prg);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
 
         glBindVertexArray(0);
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
     }
+}
 
-    SDL_GL_DeleteContext(context);
-    SDL_DestroyWindow(window);
+
+// load file specified by path and return content as string
+std::string loadFile(std::string path)
+{
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file: " + path);
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+int main(int argc, char* argv[])
+{
+    ge::gl::init();
+
+    auto sdlGuard = SDL_Guard();
+    auto window  = sdlGuard.createWindow();
+    auto context = sdlGuard.getContext();
+
+    auto imGuiGuard = ImGui_Guard(window, context);
+
+    std::string vSrc = VERTEX_SHADER_SOURCE;
+    std::string fSrc = FRAGMENT_SHADER_SOURCE;
+
+    vSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/vertex_shader.vs");
+    fSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/fragment_shader.fs");
+
+    auto vShader = createShader(GL_VERTEX_SHADER, vSrc);
+    auto fShader = createShader(GL_FRAGMENT_SHADER, fSrc);
+
+    GLuint prg = createProgram({ vShader, fShader });
+
+    auto vao = createVAO();
+    mainloop(window, vao, prg);
+
     return 0;
 }
