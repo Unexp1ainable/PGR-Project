@@ -6,6 +6,8 @@
 #include <vector>
 
 #include "SDL_keycode.h"
+#include "SDL_mouse.h"
+#include "SDL_scancode.h"
 #include "common.h"
 #include "imgui_impl_opengl3.h"
 #include <SDL.h>
@@ -32,37 +34,60 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
     FreeLookCamera camera {};
     float sensitivity = 0.01;
     bool running      = true;
+    bool pressed      = false;
+
     while (running) {
+        // SDL_PumpEvents();
+        const Uint8* keystate = SDL_GetKeyboardState(NULL);
+
+        // continuous-response keys
+        if (keystate[SDL_SCANCODE_W]) {
+            camera.forward(-sensitivity);
+        }
+        if (keystate[SDL_SCANCODE_A]) {
+            camera.left(sensitivity);
+        }
+        if (keystate[SDL_SCANCODE_S]) {
+            camera.back(-sensitivity);
+        }
+        if (keystate[SDL_SCANCODE_D]) {
+            camera.right(sensitivity);
+        }
+        if (keystate[SDL_SCANCODE_SPACE]) {
+            camera.up(sensitivity);
+        }
+        if (keystate[SDL_SCANCODE_LSHIFT]) {
+            camera.down(sensitivity);
+        }
+
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            ImGui_ImplSDL2_ProcessEvent(&event); // Forward event to backend
+
+            if (ImGui::GetIO().WantCaptureMouse) {
+                continue;
+            }
             if (event.type == SDL_QUIT) {
                 running = false;
-            } else if (event.type == SDL_KEYDOWN) {
-
-                switch (event.key.keysym.sym) {
-                    case SDLK_w:
-                        camera.forward(sensitivity);
-                        break;
-                    case SDLK_a:
-                        camera.left(sensitivity);
-                        break;
-                    case SDLK_s:
-                        camera.back(sensitivity);
-                        break;
-                    case SDLK_d:
-                        camera.right(sensitivity);
-                        break;
-                    case SDLK_SPACE:
-                        camera.up(sensitivity);
-                        break;
-                    case SDLK_LSHIFT:
-                        camera.down(sensitivity);
-                        break;
-                }
             }
-
-            ImGui_ImplSDL2_ProcessEvent(&event); // Forward event to backend
+            if (event.type == SDL_MOUSEBUTTONDOWN) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    pressed = true;
+                }
+                if (event.button.button == SDL_BUTTON_RIGHT) { }
+            } else if (event.type == SDL_MOUSEBUTTONUP) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    pressed = false;
+                }
+                if (event.button.button == SDL_BUTTON_RIGHT) { }
+            } else if (event.type == SDL_MOUSEMOTION && event.motion.state & SDL_BUTTON_LMASK) {
+                auto xrel = event.motion.xrel / 500.;
+                auto yrel = event.motion.yrel / 500.;
+                camera.addXAngle(-yrel);
+                camera.addYAngle(-xrel);
+            }
         }
+
         // Update the uniforms
         synchronizer.syncUniforms(uniforms, camera.getView());
 

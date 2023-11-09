@@ -22,8 +22,7 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store, glm::mat4 view
     }
     if (store.lightPosition != m_gpu_uniforms.lightPosition || viewChanged) {
         m_gpu_uniforms.lightPosition = store.lightPosition;
-        glm::vec3 lightPos = glm::vec3(glm::vec4(m_gpu_uniforms.lightPosition, 1.0));
-        glm::vec3 lightPos2 = glm::vec3(view * glm::vec4(m_gpu_uniforms.lightPosition, 1.0));
+        glm::vec3 lightPos = glm::vec3(view * glm::vec4(m_gpu_uniforms.lightPosition, 1.0));
         glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "lightPosition"), 1, glm::value_ptr(lightPos));
     }
     if (store.spherePosition != m_gpu_uniforms.spherePosition || viewChanged) {

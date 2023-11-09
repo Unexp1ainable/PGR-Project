@@ -21,11 +21,16 @@ Hit traceRay(vec3 ray) {
     float b = 2 * dot(ray, sphere.center);
     float c = dot(sphere.center, sphere.center) - sphere.radius * sphere.radius;
     float d = b * b - 4 * a * c;
-    if (d < 0) {
+    if (d <= 0.) {
         return Hit(false, vec3(0, 0, 0));
     }
-    float t = (b - sqrt(d)) / (2 * a);
-    return Hit(true, ray * t);
+    float t1 = (b - sqrt(d)) / (2 * a);
+    float t2 = (b + sqrt(d)) / (2 * a);
+
+    float t = t1 < 0. ? t2 : t1;
+    vec3 pos = ray * t;
+    bool res = t > 0.;
+    return Hit(res, pos);
 }
 
 void main() 
