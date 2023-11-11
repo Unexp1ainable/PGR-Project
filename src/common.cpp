@@ -1,5 +1,6 @@
 #include "common.h"
 #include <geGL/StaticCalls.h>
+#include <glm/ext/quaternion_geometric.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 
@@ -29,5 +30,15 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store, glm::mat4 view
         m_gpu_uniforms.spherePosition = store.spherePosition;
         glm::vec3 spherePos = glm::vec3(view * glm::vec4(m_gpu_uniforms.spherePosition, 1.0));
         glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "sphere.center"), 1, glm::value_ptr(spherePos));
+    }
+    if (store.cylinderPosition != m_gpu_uniforms.cylinderPosition || viewChanged) {
+        m_gpu_uniforms.cylinderPosition = store.cylinderPosition;
+        glm::vec3 cylinderPos = glm::vec3(view * glm::vec4(m_gpu_uniforms.cylinderPosition, 1.0));
+        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "cylinder.center"), 1, glm::value_ptr(cylinderPos));
+    }
+    if (store.cylinderDirection != m_gpu_uniforms.cylinderDirection || viewChanged) {
+        m_gpu_uniforms.cylinderDirection = store.cylinderDirection;
+        glm::vec3 cylinderDirection = glm::normalize(glm::vec3(view * glm::vec4(m_gpu_uniforms.cylinderDirection, 0.0)));
+        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "cylinder.direction"), 1, glm::value_ptr(cylinderDirection));
     }
 }

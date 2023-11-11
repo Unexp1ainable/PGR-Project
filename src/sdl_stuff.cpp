@@ -27,7 +27,7 @@ SDL_Window* SDL_Guard::createWindow()
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, (version % 100) / 10);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, profile);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, flags);
-
+    
     m_context = SDL_GL_CreateContext(m_window);
     return m_window;
 }

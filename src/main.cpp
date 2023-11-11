@@ -1,9 +1,11 @@
 #include <SDL2/SDL_events.h>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+
 
 #include "SDL_keycode.h"
 #include "SDL_mouse.h"
@@ -28,6 +30,7 @@
 
 using namespace ge::gl;
 
+constexpr const float SENSITIVITY = 0.01f;
 
 void resizeWindow(int width, int height, UniformStore& uniforms)
 {
@@ -36,79 +39,79 @@ void resizeWindow(int width, int height, UniformStore& uniforms)
     uniforms.screenHeight = height;
 }
 
+void processInput(bool& running, FreeLookCamera& camera, UniformStore& uniforms)
+{
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+
+    // continuous-response keys
+    if (keystate[SDL_SCANCODE_W]) {
+        camera.forward(-SENSITIVITY);
+    }
+    if (keystate[SDL_SCANCODE_A]) {
+        camera.left(SENSITIVITY);
+    }
+    if (keystate[SDL_SCANCODE_S]) {
+        camera.back(-SENSITIVITY);
+    }
+    if (keystate[SDL_SCANCODE_D]) {
+        camera.right(SENSITIVITY);
+    }
+    if (keystate[SDL_SCANCODE_SPACE]) {
+        camera.up(SENSITIVITY);
+    }
+    if (keystate[SDL_SCANCODE_LSHIFT]) {
+        camera.down(SENSITIVITY);
+    }
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        ImGui_ImplSDL2_ProcessEvent(&event); // Forward event to backend
+
+        if (ImGui::GetIO().WantCaptureMouse) {
+            continue;
+        }
+
+        switch (event.type) {
+            case SDL_QUIT:
+                running = false;
+                break;
+            case SDL_MOUSEBUTTONDOWN:
+                if (event.button.button == SDL_BUTTON_LEFT) { }
+                if (event.button.button == SDL_BUTTON_RIGHT) { }
+                break;
+            case SDL_MOUSEBUTTONUP:
+                if (event.button.button == SDL_BUTTON_LEFT) { }
+                if (event.button.button == SDL_BUTTON_RIGHT) { }
+                break;
+            case SDL_MOUSEMOTION:
+                if (event.motion.state & SDL_BUTTON_LMASK) {
+                    auto xrel = event.motion.xrel / 500.;
+                    auto yrel = event.motion.yrel / 500.;
+                    camera.addXAngle(-yrel);
+                    camera.addYAngle(-xrel);
+                }
+                break;
+            case SDL_WINDOWEVENT:
+                if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                    resizeWindow(event.window.data1, event.window.data2, uniforms);
+                }
+                break;
+        }
+    }
+}
 
 void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
 {
     UniformStore uniforms;
     UniformSynchronizer synchronizer(prg);
     FreeLookCamera camera {};
-    float sensitivity = 0.01;
-    bool running      = true;
-    bool pressed      = false;
+    bool running = true;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto end   = std::chrono::high_resolution_clock::now();
 
     while (running) {
-        // SDL_PumpEvents();
-        const Uint8* keystate = SDL_GetKeyboardState(NULL);
-
-        // continuous-response keys
-        if (keystate[SDL_SCANCODE_W]) {
-            camera.forward(-sensitivity);
-        }
-        if (keystate[SDL_SCANCODE_A]) {
-            camera.left(sensitivity);
-        }
-        if (keystate[SDL_SCANCODE_S]) {
-            camera.back(-sensitivity);
-        }
-        if (keystate[SDL_SCANCODE_D]) {
-            camera.right(sensitivity);
-        }
-        if (keystate[SDL_SCANCODE_SPACE]) {
-            camera.up(sensitivity);
-        }
-        if (keystate[SDL_SCANCODE_LSHIFT]) {
-            camera.down(sensitivity);
-        }
-
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            ImGui_ImplSDL2_ProcessEvent(&event); // Forward event to backend
-
-            if (ImGui::GetIO().WantCaptureMouse) {
-                continue;
-            }
-
-            switch (event.type) {
-                case SDL_QUIT:
-                    running = false;
-                    break;
-                case SDL_MOUSEBUTTONDOWN:
-                    if (event.button.button == SDL_BUTTON_LEFT) {
-                        pressed = true;
-                    }
-                    if (event.button.button == SDL_BUTTON_RIGHT) { }
-                    break;
-                case SDL_MOUSEBUTTONUP:
-                    if (event.button.button == SDL_BUTTON_LEFT) {
-                        pressed = false;
-                    }
-                    if (event.button.button == SDL_BUTTON_RIGHT) { }
-                    break;
-                case SDL_MOUSEMOTION:
-                    if (event.motion.state & SDL_BUTTON_LMASK) {
-                        auto xrel = event.motion.xrel / 500.;
-                        auto yrel = event.motion.yrel / 500.;
-                        camera.addXAngle(-yrel);
-                        camera.addYAngle(-xrel);
-                    }
-                    break;
-                case SDL_WINDOWEVENT:
-                    if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                        resizeWindow(event.window.data1, event.window.data2, uniforms);
-                    }
-                    break;
-            }
-        }
+        processInput(running, camera, uniforms);
 
         // Update the uniforms
         synchronizer.syncUniforms(uniforms, camera.getView());
@@ -117,8 +120,12 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
         // ImGui::ShowDemoWindow(); // Show demo window! :)
-        drawGui(uniforms);
 
+        std::chrono::duration<double> duration = end - start;
+        float fps                              = 1 / duration.count();
+        start                                  = std::chrono::high_resolution_clock::now();
+
+        drawGui(uniforms, fps);
 
         glClearColor(0, 0, 0, 1);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -126,6 +133,7 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
         glUseProgram(prg);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
         glBindVertexArray(0);
+        end = std::chrono::high_resolution_clock::now();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

@@ -1,7 +1,7 @@
 #include "imgui_stuff.h"
+#include "imgui_impl_opengl3.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
-#include "imgui_impl_opengl3.h"
 #include <imgui_impl_sdl2.h>
 
 
@@ -23,12 +23,13 @@ ImGui_Guard::~ImGui_Guard()
     ImGui::DestroyContext();
 }
 
-void drawGui(UniformStore& store)
+void drawGui(UniformStore& store, float fps)
 {
     ImGui::Begin("Uniforms");
     ImGui::SliderFloat3("lightPos", glm::value_ptr(store.lightPosition), -100., 100.);
     ImGui::SliderFloat3("spherePos", glm::value_ptr(store.spherePosition), -2., 2.);
     ImGui::End();
+    ImGui::Begin("Other");
+    ImGui::Text("FPS: %.2f", fps);
+    ImGui::End();
 }
-
-

@@ -11,4 +11,4 @@ public:
 private:
 };
 
-void drawGui(UniformStore& store);
+void drawGui(UniformStore& store, float fps);

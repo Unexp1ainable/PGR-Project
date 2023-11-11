@@ -5,10 +5,12 @@
 
 class UniformStore {
 public:
-    int screenWidth          = 1024;
-    int screenHeight         = 746;
-    glm::vec3 lightPosition  = { 100, 100, -100 };
-    glm::vec3 spherePosition = { 0., 0., 2. };
+    int screenWidth             = 1024;
+    int screenHeight            = 746;
+    glm::vec3 lightPosition     = { 100, 100, -100 };
+    glm::vec3 spherePosition    = { 0., 0., 2. };
+    glm::vec3 cylinderPosition  = { 0., 0., 2. };
+    glm::vec3 cylinderDirection = { 0., 1., 0. };
 };
 
 
@@ -31,4 +33,11 @@ private:
 struct Sphere {
     glm::vec3 center;
     float radius;
+};
+
+
+struct Cylinder {
+    glm::vec3 center;
+    float radius;
+    float height;
 };
