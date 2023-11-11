@@ -53,6 +53,7 @@ Hit intersectSphere(vec3 from, vec3 to, Sphere sphere)
     return Hit(res, pos, normalize(pos - sphere.center));
 }
 
+// Stolen from https://www.shadertoy.com/view/4lcSRn
 Hit intersectCylinder(vec3 from, vec3 to, Cylinder cylinder)
 {
     vec3 ray    = to - from;
