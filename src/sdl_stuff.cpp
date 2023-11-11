@@ -17,7 +17,7 @@ SDL_Guard::~SDL_Guard()
 SDL_Window* SDL_Guard::createWindow()
 {
     m_window = SDL_CreateWindow(
-        "PGR_Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 768, SDL_WINDOW_OPENGL
+        "PGR_Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 768, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
     );
 
     uint32_t version = 460; // context version

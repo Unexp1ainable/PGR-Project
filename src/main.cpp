@@ -8,6 +8,7 @@
 #include "SDL_keycode.h"
 #include "SDL_mouse.h"
 #include "SDL_scancode.h"
+#include "SDL_video.h"
 #include "common.h"
 #include "imgui_impl_opengl3.h"
 #include <SDL.h>
@@ -26,6 +27,15 @@
 #include "sdl_stuff.h"
 
 using namespace ge::gl;
+
+
+void resizeWindow(int width, int height, UniformStore& uniforms)
+{
+    glViewport(0, 0, width, height);
+    uniforms.screenWidth  = width;
+    uniforms.screenHeight = height;
+}
+
 
 void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
 {
@@ -67,24 +77,36 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
             if (ImGui::GetIO().WantCaptureMouse) {
                 continue;
             }
-            if (event.type == SDL_QUIT) {
-                running = false;
-            }
-            if (event.type == SDL_MOUSEBUTTONDOWN) {
-                if (event.button.button == SDL_BUTTON_LEFT) {
-                    pressed = true;
-                }
-                if (event.button.button == SDL_BUTTON_RIGHT) { }
-            } else if (event.type == SDL_MOUSEBUTTONUP) {
-                if (event.button.button == SDL_BUTTON_LEFT) {
-                    pressed = false;
-                }
-                if (event.button.button == SDL_BUTTON_RIGHT) { }
-            } else if (event.type == SDL_MOUSEMOTION && event.motion.state & SDL_BUTTON_LMASK) {
-                auto xrel = event.motion.xrel / 500.;
-                auto yrel = event.motion.yrel / 500.;
-                camera.addXAngle(-yrel);
-                camera.addYAngle(-xrel);
+
+            switch (event.type) {
+                case SDL_QUIT:
+                    running = false;
+                    break;
+                case SDL_MOUSEBUTTONDOWN:
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+                        pressed = true;
+                    }
+                    if (event.button.button == SDL_BUTTON_RIGHT) { }
+                    break;
+                case SDL_MOUSEBUTTONUP:
+                    if (event.button.button == SDL_BUTTON_LEFT) {
+                        pressed = false;
+                    }
+                    if (event.button.button == SDL_BUTTON_RIGHT) { }
+                    break;
+                case SDL_MOUSEMOTION:
+                    if (event.motion.state & SDL_BUTTON_LMASK) {
+                        auto xrel = event.motion.xrel / 500.;
+                        auto yrel = event.motion.yrel / 500.;
+                        camera.addXAngle(-yrel);
+                        camera.addYAngle(-xrel);
+                    }
+                    break;
+                case SDL_WINDOWEVENT:
+                    if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                        resizeWindow(event.window.data1, event.window.data2, uniforms);
+                    }
+                    break;
             }
         }
 

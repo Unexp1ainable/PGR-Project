@@ -2,10 +2,20 @@
 layout(location = 0) out vec4 fColor;
 
 in vec4 gl_FragCoord;
+
+#define ORIGIN vec3(0, 0, 0)
+
 struct Sphere
 {
     vec3 center;
     float radius;
+};
+
+struct Cylinder
+{
+    vec3 center;
+    float radius;
+    float height;
 };
 
 struct Hit {
@@ -13,13 +23,20 @@ struct Hit {
     vec3 pos;
 };
 
+
 uniform vec3 lightPosition = vec3(100,100,-100);
 uniform Sphere sphere = Sphere(vec3(0, 0, 2), 0.2);
+uniform int screenWidth = 1024;
+uniform int screenHeight = 768;
 
-Hit traceRay(vec3 ray) {
+
+Hit traceRay(vec3 from, vec3 to) {
+    vec3 ray = to - from;
+    vec3 sphereToRay = sphere.center - from;
+
     float a = dot(ray, ray);
-    float b = 2 * dot(ray, sphere.center);
-    float c = dot(sphere.center, sphere.center) - sphere.radius * sphere.radius;
+    float b = 2 * dot(ray, sphereToRay);
+    float c = dot(sphere.center, sphere.center) + dot(from,from) - 2.0 * dot(sphere.center, from) - sphere.radius * sphere.radius;
     float d = b * b - 4 * a * c;
     if (d <= 0.) {
         return Hit(false, vec3(0, 0, 0));
@@ -33,18 +50,16 @@ Hit traceRay(vec3 ray) {
     return Hit(res, pos);
 }
 
+
 void main() 
-{ 
-    int width = 1024;
-    int height = 768;
+{   
+    float bigger = screenWidth > screenHeight ? screenWidth : screenHeight;
+    float waspect = screenWidth / bigger;
+    float haspect = screenHeight / bigger;
 
-    float bigger = width > height ? width : height;
-    float waspect = width / bigger;
-    float haspect = height / bigger;
-
-    Hit hit = traceRay(vec3(gl_FragCoord.x/bigger-0.5*waspect, gl_FragCoord.y/bigger-0.5*haspect, 1));
+    Hit hit = traceRay(ORIGIN, vec3(gl_FragCoord.x/bigger-0.5*waspect, gl_FragCoord.y/bigger-0.5*haspect, 1));
     if (hit.hit) {
-        vec3 normal = normalize(hit.pos- sphere.center);
+        vec3 normal = normalize(hit.pos - sphere.center);
         vec3 surface2light = normalize(lightPosition - hit.pos);
         float diffuse = max(dot(normal,surface2light),0.1f);
         fColor = vec4(1.*diffuse, 0, 0, 1);

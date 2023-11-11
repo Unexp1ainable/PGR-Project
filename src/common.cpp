@@ -12,11 +12,11 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store, glm::mat4 view
         viewChanged = true;
     }
 
-    if (store.screenWidth != m_gpu_uniforms.screenWidth || viewChanged) {
+    if (store.screenWidth != m_gpu_uniforms.screenWidth) {
         m_gpu_uniforms.screenWidth = store.screenWidth;
         glProgramUniform1i(m_program, glGetUniformLocation(m_program, "screenWidth"), m_gpu_uniforms.screenWidth);
     }
-    if (store.screenHeight != m_gpu_uniforms.screenHeight || viewChanged) {
+    if (store.screenHeight != m_gpu_uniforms.screenHeight) {
         m_gpu_uniforms.screenHeight = store.screenHeight;
         glProgramUniform1i(m_program, glGetUniformLocation(m_program, "screenHeight"), m_gpu_uniforms.screenHeight);
     }
