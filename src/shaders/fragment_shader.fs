@@ -43,14 +43,13 @@ Cylinder cylinder = Cylinder(vec3(0, 0, 2), vec3(0, 1, 0), 0.2, 0.5);
 Plane plane       = Plane(vec3(-1, 0, 2), vec3(0, 1, 0), vec3(1, 0, 0), .5);
 
 
-Hit intersectSphere(vec3 from, vec3 to, Sphere sphere)
+Hit intersectSphere(vec3 ro, vec3 rd, Sphere sphere)
 {
-    vec3 ray         = normalize(to - from);
-    vec3 sphereToRay = from - sphere.center;
+    vec3 sphereToRay = ro - sphere.center;
 
-    float a = dot(ray, ray);
-    float b = 2 * dot(ray, sphereToRay);
-    float c = dot(sphere.center, sphere.center) + dot(from, from) - 2.0 * dot(sphere.center, from)
+    float a = dot(rd, rd);
+    float b = 2 * dot(rd, sphereToRay);
+    float c = dot(sphere.center, sphere.center) + dot(ro, ro) - 2.0 * dot(sphere.center, ro)
         - sphere.radius * sphere.radius;
     float d = b * b - 4 * a * c;
     if (d <= 0.) {
@@ -60,21 +59,16 @@ Hit intersectSphere(vec3 from, vec3 to, Sphere sphere)
     float t2 = (-b + sqrt(d)) / (2 * a);
 
     float t  = t1 < 0. ? t2 : t1;
-    vec3 pos = from + ray * t;
+    vec3 pos = ro + rd * t;
     return Hit(t, normalize(pos - sphere.center));
 }
 
 // Stolen from https://www.shadertoy.com/view/4lcSRn
-Hit intersectCylinder(vec3 from, vec3 to, Cylinder cylinder)
+Hit intersectCylinder(vec3 ro, vec3 rd, Cylinder cylinder)
 {
-    vec3 ray    = to - from;
-    vec3 center = cylinder.center;
-
-    vec3 ro  = from; // ray origin
-    vec3 rd  = normalize(ray); // ray direction
-    vec3 cb  = center; // cylinder base
+    vec3 cb  = cylinder.center;
     vec3 ba  = cylinder.direction * cylinder.height; // oriented cylinder height
-    vec3 pb  = center + ba; // cylinder top
+    vec3 pb  = cylinder.center + ba; // cylinder top
     float ra = cylinder.radius; // cylinder radius
 
     vec3 oc = ro - cb; // vector from cylinder base to ray origin
@@ -111,13 +105,11 @@ Hit intersectCylinder(vec3 from, vec3 to, Cylinder cylinder)
 
 
 // plane degined by p (p.xyz must be normalized)
-Hit intersectPlane(vec3 from, vec3 to, Plane plane)
+Hit intersectPlane(vec3 ro, vec3 rd, Plane plane)
 {
-    vec3 ray = normalize(to - from);
-
-    vec3 o  = from - plane.center;
-    float t = -dot(plane.normal, o) / dot(ray, plane.normal);
-    vec3 q  = o + ray * t;
+    vec3 o  = ro - plane.center;
+    float t = -dot(plane.normal, o) / dot(rd, plane.normal);
+    vec3 q  = o + rd * t;
 
     vec3 d1    = plane.direction;
     vec3 d2    = cross(plane.normal, d1);
@@ -131,13 +123,13 @@ Hit intersectPlane(vec3 from, vec3 to, Plane plane)
     return Hit(t, plane.direction);
 }
 
-Hit traceRay(vec3 from, vec3 to)
+Hit traceRay(vec3 ro, vec3 rd)
 {
     const int COUNT = 3;
     Hit hits[COUNT];
-    hits[0] = intersectSphere(from, to, sphere);
-    hits[1] = intersectCylinder(from, to, cylinder);
-    hits[2] = intersectPlane(from, to, plane);
+    hits[0] = intersectSphere(ro, rd, sphere);
+    hits[1] = intersectCylinder(ro, rd, cylinder);
+    hits[2] = intersectPlane(ro, rd, plane);
 
     Hit result  = Hit(NO_HIT, vec3(0, 0, 0));
     float min_t = 1000000;
@@ -166,16 +158,16 @@ void main()
     vec3 re = (cameraMatrix
         * vec4(vec3(gl_FragCoord.x / bigger - 0.5 * waspect, gl_FragCoord.y / bigger - 0.5 * haspect, 1), 1)).xyz;
 
-    vec3 ray = re - ro;
+    vec3 rd = normalize(re - ro);
 
-    Hit hit = traceRay(ro.xyz, re.xyz);
+    Hit hit = traceRay(ro, rd);
 
     // Hit hit = traceRay(
     //     ORIGIN, vec3(gl_FragCoord.x / bigger - 0.5 * waspect, gl_FragCoord.y / bigger - 0.5 * haspect, 1)
     // );
     if (hit.t > 0.) {
         vec3 normal        = hit.normal;
-        vec3 surface2light = normalize(lightPosition - ro + hit.t * ray);
+        vec3 surface2light = normalize(lightPosition - ro + hit.t * rd);
         float diffuse      = max(dot(normal, surface2light), 0.1f);
         fColor             = vec4(diffuse, 0, 0, 1);
     } else {
