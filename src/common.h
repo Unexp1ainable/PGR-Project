@@ -9,11 +9,6 @@ public:
     int screenHeight            = 746;
     glm::vec3 lightPosition     = { 100, 100, -100 };
     glm::vec3 spherePosition    = { 0., 0., 2. };
-    glm::vec3 cylinderPosition  = { 0., 0., 2. };
-    glm::vec3 cylinderDirection = { 0., 1., 0. };
-    glm::vec3 planePosition     = { 0., 0., 2. };
-    glm::vec3 planeNormal       = { 0., 1., 0. };
-    glm::vec3 planeDirection     = { 1., 0., 0. };
 };
 
 

@@ -32,16 +32,20 @@ struct Hit {
 
 
 uniform vec3 lightPosition = vec3(100, 100, -100);
-uniform Sphere sphere      = Sphere(vec3(0, 0, 2), 0.2);
-uniform Cylinder cylinder  = Cylinder(vec3(0, 0, 2), vec3(0, 0, 2), 0.2, 0.5);
-uniform Plane plane  = Plane(vec3(0, 0, 1), vec3(0, 1, 0),vec3(1, 0, 0), .5);
 uniform int screenWidth    = 1024;
 uniform int screenHeight   = 768;
+
+uniform mat4 cameraMatrix    = mat4(1.0);
+
+
+Sphere sphere     = Sphere(vec3(1, 0, 2), 0.2);
+Cylinder cylinder = Cylinder(vec3(0, 0, 2), vec3(0, 1, 0), 0.2, 0.5);
+Plane plane       = Plane(vec3(-1, 0, 2), vec3(0, 1, 0), vec3(1, 0, 0), .5);
 
 
 Hit intersectSphere(vec3 from, vec3 to, Sphere sphere)
 {
-    vec3 ray         = to - from;
+    vec3 ray         = normalize(to - from);
     vec3 sphereToRay = from - sphere.center;
 
     float a = dot(ray, ray);
@@ -56,7 +60,7 @@ Hit intersectSphere(vec3 from, vec3 to, Sphere sphere)
     float t2 = (-b + sqrt(d)) / (2 * a);
 
     float t  = t1 < 0. ? t2 : t1;
-    vec3 pos = ray * t;
+    vec3 pos = from + ray * t;
     bool res = t > 0.;
     return Hit(res, pos, normalize(pos - sphere.center));
 }
@@ -96,12 +100,12 @@ Hit intersectCylinder(vec3 from, vec3 to, Cylinder cylinder)
     // body
     float y = baoc + t * bard;
     if (y > 0.0 && y < baba)
-        return Hit(t.x > 0., t * from, (oc + t * rd - ba * y / baba) / ra);
+        return Hit(t.x > 0., from + t * ray, (oc + t * rd - ba * y / baba) / ra);
 
     // caps
     t = (((y < 0.0) ? 0.0 : baba) - baoc) / bard;
     if (abs(k1 + k2 * t) < h)
-        return Hit(true, t * from, ba * sign(y) / sqrt(baba));
+        return Hit(true, from + t * ray, ba * sign(y) / sqrt(baba));
 
     return Hit(false, vec3(0, 0, 0), vec3(0, 0, 0));
 }
@@ -112,28 +116,45 @@ Hit intersectPlane(vec3 from, vec3 to, Plane plane)
 {
     vec3 ray = normalize(to - from);
 
-    vec3  o = from - plane.center;
-    float t = -dot(plane.normal,o)/dot(ray,plane.normal);
-    vec3  q = o + ray*t;
+    vec3 o  = from - plane.center;
+    float t = -dot(plane.normal, o) / dot(ray, plane.normal);
+    vec3 q  = o + ray * t;
 
-    vec3 d1 = plane.direction;
-    vec3 d2 = cross(plane.normal, d1);
-    float dist = max(abs(dot(q,d1)), abs(dot(q,d2)));
+    vec3 d1    = plane.direction;
+    vec3 d2    = cross(plane.normal, d1);
+    float dist = max(abs(dot(q, d1)), abs(dot(q, d2)));
 
     // for disc:
     // float mdist = sqrt(dot(dist,dist));
     // bool res = t > 0. && dot(q,q)<1*1;
 
     bool res = t > 0. && dist < plane.size;
-    return Hit(res, t * from, plane.direction);
+    return Hit(res, from + t * ray, plane.direction);
 }
 
 Hit traceRay(vec3 from, vec3 to)
 {
-    // return intersectSphere(from, to, sphere);
-    // return intersectCylinder(from, to, cylinder);
-    // Plane p = Plane(sphere.center, plane.normal, 1.);
-    return intersectPlane(from, to, plane);
+    const int COUNT = 3;
+    Hit hits[COUNT];
+    hits[0] = intersectSphere(from, to, sphere);
+    hits[1] = intersectCylinder(from, to, cylinder);
+    hits[2] = intersectPlane(from, to, plane);
+
+    Hit result = Hit(false, vec3(0, 0, 0), vec3(0, 0, 0));
+    float min  = 1000000;
+    for (int i = 0; i < COUNT; i++) {
+        if (!hits[i].hit) {
+            continue;
+        }
+
+        float dist = length(hits[i].pos - from);
+        if (dist < min) {
+            min    = dist;
+            result = hits[i];
+        }
+    }
+
+    return result;
 }
 
 
@@ -143,9 +164,14 @@ void main()
     float waspect = screenWidth / bigger;
     float haspect = screenHeight / bigger;
 
-    Hit hit = traceRay(
-        ORIGIN, vec3(gl_FragCoord.x / bigger - 0.5 * waspect, gl_FragCoord.y / bigger - 0.5 * haspect, 1)
-    );
+    vec4 ro = cameraMatrix * vec4(ORIGIN, 1);
+    vec4 re = cameraMatrix * vec4(vec3(gl_FragCoord.x / bigger - 0.5 * waspect, gl_FragCoord.y / bigger - 0.5 * haspect, 1), 1);
+
+    Hit hit = traceRay(ro.xyz, re.xyz);
+
+    // Hit hit = traceRay(
+    //     ORIGIN, vec3(gl_FragCoord.x / bigger - 0.5 * waspect, gl_FragCoord.y / bigger - 0.5 * haspect, 1)
+    // );
     if (hit.hit) {
         vec3 normal        = hit.normal;
         vec3 surface2light = normalize(lightPosition - hit.pos);

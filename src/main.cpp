@@ -114,7 +114,7 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
         processInput(running, camera, uniforms);
 
         // Update the uniforms
-        synchronizer.syncUniforms(uniforms, camera.getView());
+        synchronizer.syncUniforms(uniforms, glm::inverse(camera.getView()));
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
