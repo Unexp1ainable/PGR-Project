@@ -17,6 +17,13 @@ struct Cylinder {
     float height;
 };
 
+struct Plane {
+    vec3 center;
+    vec3 normal;
+    vec3 direction;
+    float size;
+};
+
 struct Hit {
     bool hit;
     vec3 pos;
@@ -27,6 +34,7 @@ struct Hit {
 uniform vec3 lightPosition = vec3(100, 100, -100);
 uniform Sphere sphere      = Sphere(vec3(0, 0, 2), 0.2);
 uniform Cylinder cylinder  = Cylinder(vec3(0, 0, 2), vec3(0, 0, 2), 0.2, 0.5);
+uniform Plane plane  = Plane(vec3(0, 0, 1), vec3(0, 1, 0),vec3(1, 0, 0), .5);
 uniform int screenWidth    = 1024;
 uniform int screenHeight   = 768;
 
@@ -59,18 +67,20 @@ Hit intersectCylinder(vec3 from, vec3 to, Cylinder cylinder)
     vec3 ray    = to - from;
     vec3 center = cylinder.center;
 
-    vec3 ro  = from;
-    vec3 rd  = normalize(ray);
-    vec3 pa  = center;
-    vec3 pb  = center + cylinder.direction * cylinder.height;
-    float ra = cylinder.radius;
+    vec3 ro  = from; // ray origin
+    vec3 rd  = normalize(ray); // ray direction
+    vec3 cb  = center; // cylinder base
+    vec3 ba  = cylinder.direction * cylinder.height; // oriented cylinder height
+    vec3 pb  = center + ba; // cylinder top
+    float ra = cylinder.radius; // cylinder radius
 
-    vec3 ba = pb - pa;
-    vec3 oc = ro - pa;
+    vec3 oc = ro - cb; // vector from cylinder base to ray origin
 
-    float baba = dot(ba, ba);
-    float bard = dot(ba, rd);
-    float baoc = dot(ba, oc);
+    float baba = dot(ba, ba); // square of cylinder height vector magnitude
+    float bard = dot(ba, rd); // dot product between cylinder height vector and ray direction
+    float baoc = dot(
+        ba, oc
+    ); // dot product between cylinder height vector and vector from cylinder base to ray origin
 
     float k2 = baba - bard * bard;
     float k1 = baba * dot(oc, rd) - baoc * bard;
@@ -89,17 +99,41 @@ Hit intersectCylinder(vec3 from, vec3 to, Cylinder cylinder)
         return Hit(t.x > 0., t * from, (oc + t * rd - ba * y / baba) / ra);
 
     // caps
-    t = ( ((y<0.0) ? 0.0 : baba) - baoc)/bard;
-    if( abs(k1+k2*t)<h ) return Hit( true, t * from, ba*sign(y)/sqrt(baba) );
+    t = (((y < 0.0) ? 0.0 : baba) - baoc) / bard;
+    if (abs(k1 + k2 * t) < h)
+        return Hit(true, t * from, ba * sign(y) / sqrt(baba));
 
     return Hit(false, vec3(0, 0, 0), vec3(0, 0, 0));
 }
 
 
+// plane degined by p (p.xyz must be normalized)
+Hit intersectPlane(vec3 from, vec3 to, Plane plane)
+{
+    vec3 ray = normalize(to - from);
+
+    vec3  o = from - plane.center;
+    float t = -dot(plane.normal,o)/dot(ray,plane.normal);
+    vec3  q = o + ray*t;
+
+    vec3 d1 = plane.direction;
+    vec3 d2 = cross(plane.normal, d1);
+    float dist = max(abs(dot(q,d1)), abs(dot(q,d2)));
+
+    // for disc:
+    // float mdist = sqrt(dot(dist,dist));
+    // bool res = t > 0. && dot(q,q)<1*1;
+
+    bool res = t > 0. && dist < plane.size;
+    return Hit(res, t * from, plane.direction);
+}
+
 Hit traceRay(vec3 from, vec3 to)
 {
     // return intersectSphere(from, to, sphere);
-    return intersectCylinder(from, to, cylinder);
+    // return intersectCylinder(from, to, cylinder);
+    // Plane p = Plane(sphere.center, plane.normal, 1.);
+    return intersectPlane(from, to, plane);
 }
 
 

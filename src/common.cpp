@@ -41,4 +41,19 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store, glm::mat4 view
         glm::vec3 cylinderDirection = glm::normalize(glm::vec3(view * glm::vec4(m_gpu_uniforms.cylinderDirection, 0.0)));
         glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "cylinder.direction"), 1, glm::value_ptr(cylinderDirection));
     }
+    if (store.planePosition != m_gpu_uniforms.planePosition || viewChanged) {
+        m_gpu_uniforms.planePosition = store.planePosition;
+        glm::vec3 planePosition = glm::vec3(view * glm::vec4(m_gpu_uniforms.planePosition, 1.0));
+        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "plane.center"), 1, glm::value_ptr(planePosition));
+    }
+    if (store.planeNormal != m_gpu_uniforms.planeNormal || viewChanged) {
+        m_gpu_uniforms.planeNormal = store.planeNormal;
+        glm::vec3 planeNormal = glm::normalize(glm::vec3(view * glm::vec4(m_gpu_uniforms.planeNormal, 0.0)));
+        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "plane.normal"), 1, glm::value_ptr(planeNormal));
+    }
+    if (store.planeDirection != m_gpu_uniforms.planeDirection || viewChanged) {
+        m_gpu_uniforms.planeDirection = store.planeDirection;
+        glm::vec3 planeDirection = glm::normalize(glm::vec3(view * glm::vec4(m_gpu_uniforms.planeDirection, 0.0)));
+        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "plane.direction"), 1, glm::value_ptr(planeDirection));
+    }
 }
