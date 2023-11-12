@@ -25,11 +25,11 @@ ImGui_Guard::~ImGui_Guard()
 
 void drawGui(UniformStore& store, float fps)
 {
-    ImGui::Begin("Uniforms");
+    ImGui::Begin("Info");
+    ImGui::SeparatorText("Scene");
     ImGui::SliderFloat3("lightPos", glm::value_ptr(store.lightPosition), -100., 100.);
-    ImGui::SliderFloat3("spherePos", glm::value_ptr(store.spherePosition), -2., 2.);
-    ImGui::End();
-    ImGui::Begin("Other");
+    
+    ImGui::SeparatorText("Other");
     ImGui::Text("FPS: %.2f", fps);
     ImGui::End();
 }

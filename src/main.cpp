@@ -1,6 +1,7 @@
 #include <SDL2/SDL_events.h>
 #include <chrono>
 #include <fstream>
+#include <glm/matrix.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -98,6 +99,8 @@ void processInput(bool& running, FreeLookCamera& camera, UniformStore& uniforms)
                 break;
         }
     }
+
+    uniforms.cameraMatrix = glm::inverse(camera.getView());
 }
 
 void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
@@ -114,7 +117,7 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
         processInput(running, camera, uniforms);
 
         // Update the uniforms
-        synchronizer.syncUniforms(uniforms, glm::inverse(camera.getView()));
+        synchronizer.syncUniforms(uniforms);
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();

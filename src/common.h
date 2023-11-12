@@ -5,10 +5,10 @@
 
 class UniformStore {
 public:
-    int screenWidth             = 1024;
-    int screenHeight            = 746;
-    glm::vec3 lightPosition     = { 100, 100, -100 };
-    glm::vec3 spherePosition    = { 0., 0., 2. };
+    int screenWidth          = 1024;
+    int screenHeight         = 746;
+    glm::mat4 cameraMatrix   = glm::mat4(1.0f);
+    glm::vec3 lightPosition  = { 100, 100, -100 };
 };
 
 
@@ -19,12 +19,11 @@ public:
     {
     }
 
-    void syncUniforms(UniformStore const& store, glm::mat4 view);
+    void syncUniforms(UniformStore const& store);
 
 private:
     UniformStore m_gpu_uniforms {};
     GLuint m_program;
-    glm::mat4 m_view;
 };
 
 
