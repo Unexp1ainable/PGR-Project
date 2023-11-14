@@ -21,6 +21,6 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store) {
     }
     if (store.lightPosition != m_gpu_uniforms.lightPosition) {
         m_gpu_uniforms.lightPosition = store.lightPosition;
-        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "lightPosition"), 1, glm::value_ptr(store.lightPosition));
+        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "light.position"), 1, glm::value_ptr(store.lightPosition));
     }
 }
