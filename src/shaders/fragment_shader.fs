@@ -4,6 +4,7 @@ layout(location = 0) out vec4 fColor;
 in vec4 gl_FragCoord;
 
 #define ORIGIN vec3(0, 0, 0)
+#define EPSILON 0.0001
 
 struct Sphere {
     vec3 center;
@@ -40,7 +41,7 @@ uniform mat4 cameraMatrix  = mat4(1.0);
 
 Sphere sphere     = Sphere(vec3(1, 0, 2), 0.2);
 Cylinder cylinder = Cylinder(vec3(0, 0, 2), vec3(0, 1, 0), 0.2, 0.5);
-Plane plane       = Plane(vec3(-1, 0, 2), vec3(0, 1, 0), vec3(1, 0, 0), .5);
+Plane plane       = Plane(vec3(-1, 0.5, 2), vec3(0, 1, 0), vec3(1, 0, 0), .5);
 
 
 Hit intersectSphere(vec3 ro, vec3 rd, Sphere sphere)
@@ -87,18 +88,21 @@ Hit intersectCylinder(vec3 ro, vec3 rd, Cylinder cylinder)
     float h = k1 * k1 - k2 * k0;
     if (h < 0.0)
         return Hit(NO_HIT, vec3(0, 0, 0));
-    h       = sqrt(h);
-    float t = (-k1 - h) / k2;
+    h        = sqrt(h);
+    float t  = (-k1 - h) / k2;
+    float t2 = (-k1 + h) / k2;
+
+    // t = t < 0. ? t2 : t;
 
     // body
     float y = baoc + t * bard;
-    if (y > 0.0 && y < baba)
-        return Hit(t, (oc + t * rd - ba * y / baba) / ra);
+    if (y > 0.0 && y < baba && t > 0.)
+        return Hit(t, ((oc + t * rd - ba * y / baba) / ra));
 
-    // caps
-    t = (((y < 0.0) ? 0.0 : baba) - baoc) / bard;
-    if (abs(k1 + k2 * t) < h)
-        return Hit(t, ba * sign(y) / sqrt(baba));
+    t = t2;
+    y = baoc + t * bard;
+    if (y > 0.0 && y < baba)
+        return Hit(t, -((oc + t * rd - ba * y / baba) / ra));
 
     return Hit(NO_HIT, vec3(0, 0, 0));
 }
@@ -120,21 +124,43 @@ Hit intersectPlane(vec3 ro, vec3 rd, Plane plane)
     // bool res = t > 0. && dot(q,q)<1*1;
 
     t = t > 0. && dist < plane.size ? t : NO_HIT;
-    return Hit(t, plane.direction);
+    return Hit(t, plane.normal);
+}
+
+// plane degined by p (p.xyz must be normalized)
+Hit intersectDisc(vec3 ro, vec3 rd, Plane plane)
+{
+    vec3 o  = ro - plane.center;
+    float t = -dot(plane.normal, o) / dot(rd, plane.normal);
+    vec3 q  = o + rd * t;
+
+    float dist = length(q);
+
+    // for disc:
+    // float mdist = sqrt(dot(dist,dist));
+    // bool res = t > 0. && dot(q,q)<1*1;
+
+    t = t > 0. && dist < plane.size ? t : NO_HIT;
+    return Hit(t, plane.normal);
 }
 
 Hit traceRay(vec3 ro, vec3 rd)
 {
-    const int COUNT = 3;
+    const int COUNT = 4;
     Hit hits[COUNT];
     hits[0] = intersectSphere(ro, rd, sphere);
     hits[1] = intersectCylinder(ro, rd, cylinder);
-    hits[2] = intersectPlane(ro, rd, plane);
+    hits[2] = intersectDisc(ro, rd, plane);
+
+    // box
+    hits[3] = intersectPlane(ro, rd, Plane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 5));
+    // hits[4] = intersectPlane(ro, rd, Plane((vec3(2.5, 2.5, 0)), vec3(-1, 0, 0), vec3(0, 1, 0), 5));
+    // hits[5] = intersectPlane(ro, rd, Plane((vec3(0, 2.5, 2.5)), vec3(0, 0, -1), vec3(0, 1, 0), 5));
 
     Hit result  = Hit(NO_HIT, vec3(0, 0, 0));
     float min_t = 1000000;
     for (int i = 0; i < COUNT; i++) {
-        if (hits[i].t < 0.) {
+        if (hits[i].t < EPSILON) {
             continue;
         }
 
@@ -155,21 +181,49 @@ void main()
     float haspect = screenHeight / bigger;
 
     vec3 ro = (cameraMatrix * vec4(ORIGIN, 1)).xyz;
-    vec3 re = (cameraMatrix
-        * vec4(vec3(gl_FragCoord.x / bigger - 0.5 * waspect, gl_FragCoord.y / bigger - 0.5 * haspect, 1), 1)).xyz;
+    vec3 re
+        = (cameraMatrix
+           * vec4(
+               vec3(gl_FragCoord.x / bigger - 0.5 * waspect, gl_FragCoord.y / bigger - 0.5 * haspect, 1), 1
+           ))
+              .xyz;
 
     vec3 rd = normalize(re - ro);
 
     Hit hit = traceRay(ro, rd);
 
-    // Hit hit = traceRay(
-    //     ORIGIN, vec3(gl_FragCoord.x / bigger - 0.5 * waspect, gl_FragCoord.y / bigger - 0.5 * haspect, 1)
-    // );
     if (hit.t > 0.) {
+        vec3 pos = ro + hit.t * rd;
+        // shadow ray
+        Hit shadowHit = traceRay(pos, normalize(lightPosition - pos));
+        if (shadowHit.t > EPSILON) {
+            fColor = vec4(0.05,0.05,0.05, 1);
+            return;
+        } 
+
         vec3 normal        = hit.normal;
-        vec3 surface2light = normalize(lightPosition - ro + hit.t * rd);
-        float diffuse      = max(dot(normal, surface2light), 0.1f);
-        fColor             = vec4(diffuse, 0, 0, 1);
+        vec3 surface2light = normalize(lightPosition - pos);
+        // float diffuse      = max(dot(normal, surface2light), 0.1f);
+
+        float s    = 10;
+        vec3 L     = surface2light;
+        vec3 N     = hit.normal;
+        vec3 V     = rd;
+        vec3 R     = reflect(V, N);
+        float refl = 0.5;
+
+        float dF = max(dot(L, N), 0);
+
+        float sF = pow(max(dot(R, L), 0), s);
+        vec3 color = vec3(1.,0.,0.);
+        vec3 lightColor = vec3(1.,1.,1.);
+
+        vec3 diffuse  = max(color * lightColor * dF,0.1);
+        vec3 specular = lightColor * sF * refl;
+
+        vec3 phong = diffuse + specular;
+
+        fColor = vec4( phong, 1);
     } else {
         fColor = vec4(0, 0, 0, 1);
     }
