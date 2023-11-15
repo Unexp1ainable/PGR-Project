@@ -165,7 +165,7 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
 
 
     float h = k1 * k1 - k2 * k0;
-    if (h < 0.0)
+    if (h < EPSILON)
         return NO_HIT;
     h        = sqrt(h);
     float t  = (-k1 - h) / k2;
@@ -178,10 +178,9 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     if (y > EPSILON && y < baba && t > EPSILON)
         return Hit(t, ((oc + t * rd - ba * y / baba) / ra), ro + rd * t);
 
-    t = t2;
-    y = baoc + t * bard;
+    y = baoc + t2 * bard;
     if (y > EPSILON && y < baba)
-        return Hit(t, -((oc + t * rd - ba * y / baba) / ra), ro + rd * t);
+        return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2);
 
     return NO_HIT;
 }
@@ -350,9 +349,10 @@ void main()
             return;
         }
 
-        vec3 pos = ro + hit.t * rd;
+        vec3 pos = hitInfo.hit.pos;
+        vec3 lightDir = normalize(light.position - pos);
         // shadow ray
-        HitInfo shadowHit = traceRay(pos, normalize(light.position - pos));
+        HitInfo shadowHit = traceRay(pos+0.001 * lightDir, lightDir);
         vec3 shadowHitPos = pos + shadowHit.hit.t * normalize(light.position - pos);
         bool shadowed     = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
         vec3 ambient      = vec3(0.1, 0.1, 0.1);
@@ -360,31 +360,31 @@ void main()
         // vec3 color = shadeBlinnPhong(hitInfo, pos, -rd, light.position, shadowed);
         vec3 color = shadeCookTorrance(hitInfo, light, shadowed);
 
-        // HitInfo li = hitInfo;
-        // vec3 lro        = pos;
-        // vec3 lrd        = reflect(-ro, li.hit.normal);
-        // lro += 0.0001 * lrd;
-        // float refl = 1;
-        // vec3 accum = vec3(0);
-        // for (int k = 1; k < reflectionBounces; ++k) {
-        //     refl *= 1. - hitInfo.material.density;
-        //     //
+        HitInfo li = hitInfo;
+        vec3 lro        = pos;
+        vec3 lrd        = reflect(normalize(rd), normalize(li.hit.normal));
+        lro += 0.0001 * lrd;
+        float refl = 1;
+        vec3 accum = color;
+        for (int k = 1; k < reflectionBounces; ++k) {
+            refl *= 1. - hitInfo.material.density;
+            //
 
-        //     hitInfo = traceRay(lro, lrd);
+            li = traceRay(lro, lrd);
 
-        //     vec3 colorBP = shadeBlinnPhong(hitInfo, pos, -rd, light.position, shadowed);
+            vec3 color = shadeCookTorrance(li, light, false);
 
-        //     //
-        //     accum += colorBP * refl; // * exp(-0.005*i.d*i.d);
-        //     // if ((li.d < .0) || (!li.mat.reflection))
-        //     //     break;
-        //     // lro = li.p;
-        //     // lrd = reflect(-li.vd, li.n);
-        //     // lro += 0.0001 * lrd;
-        // }
+            //
+            accum += color * refl; // * exp(-0.005*i.d*i.d);
+            if ((li.material.density < .0) || (!li.material.reflection))
+                break;
+            lro = li.hit.pos;
+            lrd = reflect(-lrd, li.hit.normal);
+            lro += 0.0001 * lrd;
+        }
 
 
-        fColor = vec4(color, 1);
+        fColor = vec4(accum, 1);
     } else {
         fColor = vec4(0, 0, 0, 1);
     }
