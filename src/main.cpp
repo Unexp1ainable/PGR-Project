@@ -120,7 +120,7 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
         float fps                              = 1 / duration.count();
         start                                  = std::chrono::high_resolution_clock::now();
         processInput(running, camera, uniforms);
-        uniforms.time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        // uniforms.time = end.time_since_epoch().count() % 10000;
 
         // Update the uniforms
         synchronizer.syncUniforms(uniforms);

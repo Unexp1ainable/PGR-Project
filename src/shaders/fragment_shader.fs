@@ -51,9 +51,10 @@ uniform int screenWidth       = 1024;
 uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
 uniform int reflectionBounces = 3;
-uniform vec3 lightPosition    = vec3(0, 100, -100);
-uniform float n = 1.2;
-uniform uint time = 42;
+uniform int shadowRays        = 4;
+uniform vec3 lightPosition    = vec3(0, 4, 0);
+uniform float n               = 1.2;
+uniform uint time             = 42;
 
 uniform float roughness = 0.68;
 uniform float fresnel   = 0.5;
@@ -270,7 +271,7 @@ HitInfo traceRay(vec3 ro, vec3 rd)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeBlinnPhong(HitInfo hitInfo, RenderItem light, bool shadowed)
+vec3 shadeBlinnPhong(HitInfo hitInfo, RenderItem light, float shadow)
 {
     float diffuse  = 0.6;
     float specular = 0.4;
@@ -289,7 +290,7 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, RenderItem light, bool shadowed)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, bool shadowed)
+vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, float shadow)
 {
     float roughness = hitInfo.material.roughness;
     float F0        = hitInfo.material.fresnel;
@@ -322,39 +323,79 @@ vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, bool shadowed)
 
     vec3 spec = (NdotV * NdotL == 0.) ? vec3(0.) : vec3(fres * geo * rough) / (NdotV * NdotL);
     vec3 res  = NdotL * ((1. - K) * spec + K * hitInfo.material.color) * light.material.color;
-    res *= int(!shadowed);
+    res *= shadow;
     res = max(res, 0.1 * hitInfo.material.color);
 
     return res;
 }
 
-vec3 shade(HitInfo hitInfo, RenderItem light, bool shadowed)
+vec3 shade(HitInfo hitInfo, RenderItem light, float shadow)
 {
     // return shadeBlinnPhong(hitInfo, light, shadowed);
-    return shadeCookTorrance(hitInfo, light, shadowed);
+    return shadeCookTorrance(hitInfo, light, shadow);
 }
 
-uint random() {
-    return uint(time) * 1664525u + 1013904223u;
-}
-
-vec2 randomSampleUnitCircle()
+float random(vec2 st)
 {
-    uint seed = random();
-    float r = sqrt(seed);
+    // st *= time;
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+}
+
+
+vec2 randomSampleUnitCircle(vec2 st)
+{
+    float seed  = random(st);
+    float r     = sqrt(seed);
     float theta = 6.28318530718 * seed;
     return vec2(r, theta);
 }
 
 
-
-bool isShadowed(vec3 pos, RenderItem light)
+float calculateShadow(vec3 pos, RenderItem light)
 {
-    vec3 lightDir = normalize(light.position - pos);
+    vec3 lightDir      = normalize(light.position - pos);
+    vec3 perpLightDir1 = normalize(cross(lightDir, vec3(lightDir.x + 1, lightDir.y + 1, 0)));
+    vec3 perpLightDir2 = normalize(cross(lightDir, perpLightDir1));
+    vec2 st = gl_FragCoord.xy / vec2(screenWidth, screenHeight);
+
+    // HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, lightDir);
+    // vec3 shadowHitPos = pos + shadowHit.hit.t * lightDir;
+    // bool res          = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
+    // return 1. - float(res);
+
+    float shadow = 0;
+    int ashadowRays = 32; // TODO remove
+
+
+    for (int i = 0; i < ashadowRays; i++) {
+        vec2 rsample = randomSampleUnitCircle(st);
+        // rsample      = vec2(0);
+        // vec3 offset = vec3(rsample.x * cos(rsample.y), rsample.x * sin(rsample.y), 0);
+        float r = rsample.x * light.radius;
+        float theta = rsample.y;
+        vec2 cartesian = vec2(r * cos(theta), r * sin(theta));
+
+        vec3 offset = perpLightDir1 * cartesian.x + perpLightDir2 * cartesian.y;
+        vec3 rayDir = normalize(light.position + offset - pos);
+
+        HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, rayDir);
+        vec3 shadowHitPos = pos + shadowHit.hit.t * rayDir;
+        bool res          = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
+
+        shadow += float(!res);
+        st += rsample.xx;
+    }
+    return shadow / float(ashadowRays);
+}
+
+float calculateShadowHard(vec3 pos, RenderItem light)
+{
+    vec3 lightDir      = normalize(light.position - pos);
 
     HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, lightDir);
     vec3 shadowHitPos = pos + shadowHit.hit.t * lightDir;
-    return shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
+    bool res          = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
+    return 1. - float(res);
 }
 
 vec4 whatColorIsThere(vec3 ro, vec3 rd)
@@ -369,8 +410,8 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 pos = hit.pos;
 
-        bool shadowed = isShadowed(pos, light);
-        vec3 color    = shade(hitInfo, light, shadowed);
+        float shadow = calculateShadow(pos, light);
+        vec3 color   = shade(hitInfo, light, shadow);
 
         HitInfo currentHit = hitInfo;
         vec3 currentRo     = pos;
@@ -384,9 +425,9 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
             refl *= 1. - hitInfo.material.density;
 
             currentHit = traceRay(currentRo, currentRd);
-            shadowed   = isShadowed(currentHit.hit.pos, light);
+            shadow     = calculateShadowHard(currentHit.hit.pos, light);
 
-            vec3 color = shade(currentHit, light, shadowed);
+            vec3 color = shade(currentHit, light, shadow);
 
             accum += color * refl;
             if ((currentHit.material.density < .0))
@@ -399,42 +440,42 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
 
         // handle refraction
         // if (hitInfo.material.transparency < 1.) {
-            currentHit = hitInfo; // li
-            currentRo  = pos; // lro
-            currentRd  = reflect(rd, currentHit.hit.normal); // lrd
+        currentHit = hitInfo; // li
+        currentRo  = pos; // lro
+        currentRd  = reflect(rd, currentHit.hit.normal); // lrd
+        currentRo += 0.0001 * currentRd;
+        float refr = 1;
+
+
+        float n     = 1. / currentHit.material.n;
+        float cosI  = -dot(currentHit.hit.normal, currentHit.ed);
+        float cost2 = 1. - n * n * (1. - cosI * cosI);
+        if (cost2 > 0.) {
+            currentRo = currentHit.hit.pos;
+            currentRd = normalize(-currentHit.ed * n + currentHit.hit.normal * (n * cosI - sqrt(cost2)));
             currentRo += 0.0001 * currentRd;
-            float refr = 1;
-
-
-            float n     = 1. / currentHit.material.n;
-            float cosI  = -dot(currentHit.hit.normal, currentHit.ed);
-            float cost2 = 1. - n * n * (1. - cosI * cosI);
-            if (cost2 > 0.) {
+            for (int k = 1; k < 4; ++k) {
+                // li.d = -1.;
+                refr *= 1. - currentHit.material.density;
+                //
+                currentHit = traceRay(currentRo, currentRd);
+                shadow     = calculateShadowHard(currentHit.hit.pos, light);
+                vec3 color = shade(currentHit, light, shadow);
+                //
+                accum += color * refr;
+                // float d = length(currentHit.hit.pos - currentRo);
+                // if ((li.d<.0)||(!li.mat.refraction)) break;
+                if (currentHit.hit.inside)
+                    n = currentHit.material.n;
+                else
+                    n = 1. / currentHit.material.n;
+                cosI  = -dot(currentHit.hit.normal, currentHit.ed);
+                cost2 = 1. - n * n * (1. - cosI * cosI);
+                if (cost2 <= 0.)
+                    break;
                 currentRo = currentHit.hit.pos;
                 currentRd = normalize(-currentHit.ed * n + currentHit.hit.normal * (n * cosI - sqrt(cost2)));
                 currentRo += 0.0001 * currentRd;
-                for (int k = 1; k < 4; ++k) {
-                    // li.d = -1.;
-                    refr *= 1. - currentHit.material.density;
-                    //
-                    currentHit = traceRay(currentRo, currentRd);
-                    shadowed   = isShadowed(currentHit.hit.pos, light);
-                    vec3 color = shade(currentHit, light, shadowed);
-                    //
-                    accum += color * refr;
-                    // float d = length(currentHit.hit.pos - currentRo);
-                    // if ((li.d<.0)||(!li.mat.refraction)) break;
-                    if (currentHit.hit.inside)
-                        n = currentHit.material.n;
-                    else
-                        n = 1. / currentHit.material.n;
-                    cosI  = -dot(currentHit.hit.normal, currentHit.ed);
-                    cost2 = 1. - n * n * (1. - cosI * cosI);
-                    if (cost2 <= 0.)
-                        break;
-                    currentRo = currentHit.hit.pos;
-                    currentRd = normalize(-currentHit.ed * n + currentHit.hit.normal * (n * cosI - sqrt(cost2)));
-                    currentRo += 0.0001 * currentRd;
                 // }
             }
         }
