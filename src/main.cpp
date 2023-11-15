@@ -5,8 +5,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <sys/types.h>
 #include <vector>
-
 
 #include "SDL_keycode.h"
 #include "SDL_mouse.h"
@@ -28,6 +28,7 @@
 #include "imgui_stuff.h"
 #include "opengl_stuff.h"
 #include "sdl_stuff.h"
+
 
 using namespace ge::gl;
 
@@ -114,6 +115,10 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
     auto end   = std::chrono::high_resolution_clock::now();
 
     while (running) {
+        end                                    = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> duration = end - start;
+        float fps                              = 1 / duration.count();
+        start                                  = std::chrono::high_resolution_clock::now();
         processInput(running, camera, uniforms);
 
         // Update the uniforms
@@ -124,9 +129,6 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
         ImGui::NewFrame();
         // ImGui::ShowDemoWindow(); // Show demo window! :)
 
-        std::chrono::duration<double> duration = end - start;
-        float fps                              = 1 / duration.count();
-        start                                  = std::chrono::high_resolution_clock::now();
 
         drawGui(uniforms, fps);
 
@@ -136,7 +138,6 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
         glUseProgram(prg);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
         glBindVertexArray(0);
-        end = std::chrono::high_resolution_clock::now();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

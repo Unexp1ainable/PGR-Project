@@ -51,8 +51,8 @@ struct HitInfo {
 uniform int screenWidth       = 1024;
 uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
-uniform int reflectionBounces = 2;
-uniform vec3 lightPosition    = vec3(100, 100, -100);
+uniform int reflectionBounces = 3;
+uniform vec3 lightPosition    = vec3(0, 100, -100);
 
 uniform float roughness = 0.68;
 uniform float fresnel   = 0.5;
@@ -235,9 +235,21 @@ Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
 
 HitInfo traceRay(vec3 ro, vec3 rd)
 {
-    const int itemCount         = 5;
+    const int itemCount         = 7;
     RenderItem floor_           = createPlane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 5, materialGray);
-    RenderItem items[itemCount] = { sphere, cylinder, plane, light, floor_ };
+    RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
+    RenderItem left_           = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
+    RenderItem backside_           = createPlane((vec3(0, 0, 4)), vec3(0, 0, 1), vec3(1, 0, 0), 5, materialGray);
+    RenderItem items[itemCount] = { 
+        sphere, 
+        cylinder, 
+        plane, 
+        light, 
+        floor_, 
+        right_, 
+        // backside_, 
+        left_ 
+        };
 
 
     // const int COUNT = 4;
@@ -271,16 +283,16 @@ HitInfo traceRay(vec3 ro, vec3 rd)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, vec3 rd, vec3 lp, bool shadowed)
+vec3 shadeBlinnPhong(HitInfo hitInfo, RenderItem light, bool shadowed)
 {
     float diffuse  = 0.6;
     float specular = 0.4;
     vec3 n         = hitInfo.hit.normal;
 
     vec3 res = vec3(0.);
-    vec3 ld  = normalize(lp - pos);
+    vec3 ld  = normalize(light.position - hitInfo.hit.pos);
     res      = hitInfo.material.color * diffuse * dot(n, ld);
-    vec3 h   = normalize(rd + ld);
+    vec3 h   = normalize(hitInfo.ed + ld);
     res += specular * pow(dot(n, h), 16.);
 
     vec3 ambient = vec3(0.1, 0.1, 0.1) * hitInfo.material.color;
@@ -329,6 +341,12 @@ vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, bool shadowed)
     return res;
 }
 
+vec3 shade(HitInfo hitInfo, RenderItem light, bool shadowed)
+{
+    return shadeBlinnPhong(hitInfo, light, shadowed);
+    // return shadeCookTorrance(hitInfo, light, shadowed);
+}
+
 void main()
 {
     float bigger  = screenWidth > screenHeight ? screenWidth : screenHeight;
@@ -358,7 +376,7 @@ void main()
         vec3 ambient      = vec3(0.1, 0.1, 0.1);
 
         // vec3 color = shadeBlinnPhong(hitInfo, pos, -rd, light.position, shadowed);
-        vec3 color = shadeCookTorrance(hitInfo, light, shadowed);
+        vec3 color = shade(hitInfo, light, shadowed);
 
         HitInfo li = hitInfo;
         vec3 lro        = pos;
@@ -371,15 +389,19 @@ void main()
             //
 
             li = traceRay(lro, lrd);
+            vec3 lightDir = normalize(light.position - li.hit.pos);
+            HitInfo lshadowHit = traceRay(li.hit.pos+0.001 * lightDir, lightDir);
+            vec3 lshadowHitPos = li.hit.pos + lshadowHit.hit.t * normalize(light.position - li.hit.pos);
+            bool lshadowed     = lshadowHit.hit.t > EPSILON && lshadowHit.hit.t < (length(light.position - lshadowHitPos) - light.radius);
 
-            vec3 color = shadeCookTorrance(li, light, false);
+            vec3 color = shade(li, light, lshadowed);
 
             //
             accum += color * refl; // * exp(-0.005*i.d*i.d);
             if ((li.material.density < .0) || (!li.material.reflection))
                 break;
             lro = li.hit.pos;
-            lrd = reflect(-lrd, li.hit.normal);
+            lrd = reflect(lrd, li.hit.normal);
             lro += 0.0001 * lrd;
         }
 

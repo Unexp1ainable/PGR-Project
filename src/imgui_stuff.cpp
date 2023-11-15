@@ -33,6 +33,6 @@ void drawGui(UniformStore& store, float fps)
     ImGui::SliderFloat("density", &store.density, 0., 1.);
 
     ImGui::SeparatorText("Other");
-    ImGui::Text("FPS: %.2f", fps);
+    ImGui::Text("FPS: %f", fps);
     ImGui::End();
 }
