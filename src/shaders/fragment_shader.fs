@@ -14,8 +14,6 @@ in vec4 gl_FragCoord;
 
 struct Material {
     vec3 color; // diffuse color
-    bool reflection; // has reflection
-    bool refraction; // has refraction
     float n; // refraction index
     float roughness; // Cook-Torrance roughness
     float fresnel; // Cook-Torrance fresnel reflectance
@@ -58,11 +56,11 @@ uniform float roughness = 0.68;
 uniform float fresnel   = 0.5;
 uniform float density   = 0.8;
 
-Material materialRed   = Material(vec3(1, 0, 0), true, false, 1., roughness, fresnel, density);
-Material materialGreen = Material(vec3(0, 1, 0), true, false, 1., roughness, fresnel, density);
-Material materialBlue  = Material(vec3(0, 0, 1), true, false, 1., roughness, fresnel, density);
-Material materialGray  = Material(vec3(0.2, 0.2, 0.2), true, false, 1., roughness, fresnel, density);
-Material materialWhite = Material(vec3(1, 1, 1), true, false, 1., roughness, fresnel, density);
+Material materialRed   = Material(vec3(1, 0, 0), 1., roughness, fresnel, density);
+Material materialGreen = Material(vec3(0, 1, 0), 1., roughness, fresnel, density);
+Material materialBlue  = Material(vec3(0, 0, 1), 1., roughness, fresnel, density);
+Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, fresnel, density);
+Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, fresnel, density);
 
 
 RenderItem createSphere(vec3 position, float radius, Material material)
@@ -238,25 +236,16 @@ HitInfo traceRay(vec3 ro, vec3 rd)
     const int itemCount         = 7;
     RenderItem floor_           = createPlane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 5, materialGray);
     RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
-    RenderItem left_           = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
-    RenderItem backside_           = createPlane((vec3(0, 0, 4)), vec3(0, 0, 1), vec3(1, 0, 0), 5, materialGray);
-    RenderItem items[itemCount] = { 
-        sphere, 
-        cylinder, 
-        plane, 
-        light, 
-        floor_, 
-        right_, 
-        // backside_, 
-        left_ 
-        };
-
-
-    // const int COUNT = 4;
-    // Hit hits[COUNT];
-    // hits[0] = intersectSphere(ro, rd, sphere);
-    // hits[1] = intersectCylinder(ro, rd, cylinder);
-    // hits[2] = intersectDisc(ro, rd, plane);
+    RenderItem left_            = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
+    RenderItem backside_        = createPlane((vec3(0, 0, 4)), vec3(0, 0, 1), vec3(1, 0, 0), 5, materialGray);
+    RenderItem items[itemCount] = { sphere,
+                                    cylinder,
+                                    plane,
+                                    light,
+                                    floor_,
+                                    right_,
+                                    // backside_,
+                                    left_ };
 
 
     Hit result = NO_HIT;
@@ -334,7 +323,7 @@ vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, bool shadowed)
     fres += F0;
 
     vec3 spec = (NdotV * NdotL == 0.) ? vec3(0.) : vec3(fres * geo * rough) / (NdotV * NdotL);
-    vec3 res  = NdotL * ((1. - K) * spec + K * hitInfo.material.color) * light.material.color; // * exp(-0.001*length(lig.pos-i.p));
+    vec3 res  = NdotL * ((1. - K) * spec + K * hitInfo.material.color) * light.material.color;
     res *= int(!shadowed);
     res = max(res, 0.1 * hitInfo.material.color);
 
@@ -345,6 +334,62 @@ vec3 shade(HitInfo hitInfo, RenderItem light, bool shadowed)
 {
     return shadeBlinnPhong(hitInfo, light, shadowed);
     // return shadeCookTorrance(hitInfo, light, shadowed);
+}
+
+bool isShadowed(vec3 pos, RenderItem light)
+{
+    vec3 lightDir = normalize(light.position - pos);
+
+    HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, lightDir);
+    vec3 shadowHitPos = pos + shadowHit.hit.t * lightDir;
+    return shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
+}
+
+vec4 whatColorIsThere(vec3 ro, vec3 rd)
+{
+    HitInfo hitInfo = traceRay(ro, rd);
+    Hit hit         = hitInfo.hit;
+
+    if (hit.t > EPSILON) {
+        if (hitInfo.isLight) {
+            return vec4(hitInfo.material.color, 1);
+        }
+
+        vec3 pos      = hit.pos;
+
+        bool shadowed = isShadowed(pos, light);
+        vec3 color    = shade(hitInfo, light, shadowed);
+
+        HitInfo currentHit = hitInfo;
+        vec3 currentRo     = pos;
+        vec3 currentRd     = reflect(rd, currentHit.hit.normal);
+        currentRo += 0.0001 * currentRd;
+        float refl = 1;
+        vec3 accum = color;
+
+        for (int k = 1; k < reflectionBounces; ++k) {
+            refl *= 1. - hitInfo.material.density;
+
+            currentHit = traceRay(currentRo, currentRd);
+            shadowed   = isShadowed(currentHit.hit.pos, light);
+
+            vec3 color = shade(currentHit, light, shadowed);
+
+            accum += color * refl;
+            if ((currentHit.material.density < .0))
+                break;
+
+            currentRo = currentHit.hit.pos;
+            currentRd = reflect(currentRd, currentHit.hit.normal);
+            currentRo += 0.0001 * currentRd;
+        }
+
+
+        return vec4(accum, 1);
+
+    } else {
+        return vec4(0, 0, 0, 1);
+    }
 }
 
 void main()
@@ -358,56 +403,5 @@ void main()
 
     vec3 rd = normalize(re - ro);
 
-    HitInfo hitInfo = traceRay(ro, rd);
-    Hit hit         = hitInfo.hit;
-
-    if (hit.t > EPSILON) {
-        if (hitInfo.isLight) {
-            fColor = vec4(hitInfo.material.color, 1);
-            return;
-        }
-
-        vec3 pos = hitInfo.hit.pos;
-        vec3 lightDir = normalize(light.position - pos);
-        // shadow ray
-        HitInfo shadowHit = traceRay(pos+0.001 * lightDir, lightDir);
-        vec3 shadowHitPos = pos + shadowHit.hit.t * normalize(light.position - pos);
-        bool shadowed     = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
-        vec3 ambient      = vec3(0.1, 0.1, 0.1);
-
-        // vec3 color = shadeBlinnPhong(hitInfo, pos, -rd, light.position, shadowed);
-        vec3 color = shade(hitInfo, light, shadowed);
-
-        HitInfo li = hitInfo;
-        vec3 lro        = pos;
-        vec3 lrd        = reflect(normalize(rd), normalize(li.hit.normal));
-        lro += 0.0001 * lrd;
-        float refl = 1;
-        vec3 accum = color;
-        for (int k = 1; k < reflectionBounces; ++k) {
-            refl *= 1. - hitInfo.material.density;
-            //
-
-            li = traceRay(lro, lrd);
-            vec3 lightDir = normalize(light.position - li.hit.pos);
-            HitInfo lshadowHit = traceRay(li.hit.pos+0.001 * lightDir, lightDir);
-            vec3 lshadowHitPos = li.hit.pos + lshadowHit.hit.t * normalize(light.position - li.hit.pos);
-            bool lshadowed     = lshadowHit.hit.t > EPSILON && lshadowHit.hit.t < (length(light.position - lshadowHitPos) - light.radius);
-
-            vec3 color = shade(li, light, lshadowed);
-
-            //
-            accum += color * refl; // * exp(-0.005*i.d*i.d);
-            if ((li.material.density < .0) || (!li.material.reflection))
-                break;
-            lro = li.hit.pos;
-            lrd = reflect(lrd, li.hit.normal);
-            lro += 0.0001 * lrd;
-        }
-
-
-        fColor = vec4(accum, 1);
-    } else {
-        fColor = vec4(0, 0, 0, 1);
-    }
+    fColor = whatColorIsThere(ro, rd);
 }
