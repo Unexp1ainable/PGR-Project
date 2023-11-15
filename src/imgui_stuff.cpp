@@ -31,6 +31,7 @@ void drawGui(UniformStore& store, float fps)
     ImGui::SliderFloat("roughness", &store.roughness, 0., 1.);
     ImGui::SliderFloat("fresnel", &store.fresnel, 0., 1.);
     ImGui::SliderFloat("density", &store.density, 0., 1.);
+    ImGui::SliderFloat("n", &store.n, 1., 3.);
 
     ImGui::SeparatorText("Other");
     ImGui::Text("FPS: %f", fps);

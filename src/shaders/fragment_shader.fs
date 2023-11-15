@@ -34,9 +34,10 @@ struct Hit {
     float t;
     vec3 normal; // normal of the surface at hit point
     vec3 pos; // hit position
+    bool inside;
 };
 
-#define NO_HIT Hit(-1, vec3(0), vec3(0))
+#define NO_HIT Hit(-1, vec3(0), vec3(0), false)
 
 
 struct HitInfo {
@@ -51,12 +52,14 @@ uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
 uniform int reflectionBounces = 3;
 uniform vec3 lightPosition    = vec3(0, 100, -100);
+uniform float n = 1.2;
+uniform uint time = 42;
 
 uniform float roughness = 0.68;
 uniform float fresnel   = 0.5;
 uniform float density   = 0.8;
 
-Material materialRed   = Material(vec3(1, 0, 0), 1., roughness, fresnel, density);
+Material materialRed   = Material(vec3(1, 0, 0), n, roughness, fresnel, 0.0);
 Material materialGreen = Material(vec3(0, 1, 0), 1., roughness, fresnel, density);
 Material materialBlue  = Material(vec3(0, 0, 1), 1., roughness, fresnel, density);
 Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, fresnel, density);
@@ -134,13 +137,15 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
     if (d <= EPSILON) {
         return NO_HIT;
     }
-    float t1 = (-b - sqrt(d)) / (2 * a);
-    float t2 = (-b + sqrt(d)) / (2 * a);
+
+    float sd = sqrt(d);
+    float t1 = (-b - sd) / (2 * a);
+    float t2 = (-b + sd) / (2 * a);
 
     float t  = t1 > EPSILON * 10 ? t1 : t2;
     t        = t > EPSILON * 10 ? t : -1;
     vec3 pos = ro + rd * t;
-    return Hit(t, normalize(pos - sphere.position), pos);
+    return Hit(t, normalize(pos - sphere.position), pos, t == t2);
 }
 
 // Stolen from https://www.shadertoy.com/view/4lcSRn
@@ -174,11 +179,11 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     // body
     float y = baoc + t * bard;
     if (y > EPSILON && y < baba && t > EPSILON)
-        return Hit(t, ((oc + t * rd - ba * y / baba) / ra), ro + rd * t);
+        return Hit(t, ((oc + t * rd - ba * y / baba) / ra), ro + rd * t, true);
 
     y = baoc + t2 * bard;
     if (y > EPSILON && y < baba)
-        return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2);
+        return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2, false);
 
     return NO_HIT;
 }
@@ -196,7 +201,7 @@ Hit intersectPlane(vec3 ro, vec3 rd, RenderItem plane)
     float dist = max(abs(dot(q, d1)), abs(dot(q, d2)));
 
     t = t > EPSILON && dist < plane.size ? t : -1;
-    return Hit(t, plane.normal, ro + rd * t);
+    return Hit(t, plane.normal, ro + rd * t, false);
 }
 
 // plane degined by p (p.xyz must be normalized)
@@ -209,7 +214,7 @@ Hit intersectDisc(vec3 ro, vec3 rd, RenderItem plane)
     float dist = length(q);
 
     t = t > EPSILON && dist < plane.size ? t : -1;
-    return Hit(t, plane.normal, ro + rd * t);
+    return Hit(t, plane.normal, ro + rd * t, false);
 }
 
 Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
@@ -233,19 +238,12 @@ Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
 
 HitInfo traceRay(vec3 ro, vec3 rd)
 {
-    const int itemCount         = 7;
+    const int itemCount         = 8;
     RenderItem floor_           = createPlane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 5, materialGray);
     RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
     RenderItem left_            = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
     RenderItem backside_        = createPlane((vec3(0, 0, 4)), vec3(0, 0, 1), vec3(1, 0, 0), 5, materialGray);
-    RenderItem items[itemCount] = { sphere,
-                                    cylinder,
-                                    plane,
-                                    light,
-                                    floor_,
-                                    right_,
-                                    // backside_,
-                                    left_ };
+    RenderItem items[itemCount] = { sphere, cylinder, plane, light, floor_, right_, backside_, left_ };
 
 
     Hit result = NO_HIT;
@@ -284,9 +282,9 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, RenderItem light, bool shadowed)
     vec3 h   = normalize(hitInfo.ed + ld);
     res += specular * pow(dot(n, h), 16.);
 
-    vec3 ambient = vec3(0.1, 0.1, 0.1) * hitInfo.material.color;
-    res          = max(res, ambient);
-    res          = shadowed ? ambient : res;
+    // vec3 ambient = vec3(0.1, 0.1, 0.1) * hitInfo.material.color;
+    // res          = max(res, ambient);
+    // res          = shadowed ? ambient : res;
     return res;
 }
 
@@ -332,9 +330,23 @@ vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, bool shadowed)
 
 vec3 shade(HitInfo hitInfo, RenderItem light, bool shadowed)
 {
-    return shadeBlinnPhong(hitInfo, light, shadowed);
-    // return shadeCookTorrance(hitInfo, light, shadowed);
+    // return shadeBlinnPhong(hitInfo, light, shadowed);
+    return shadeCookTorrance(hitInfo, light, shadowed);
 }
+
+uint random() {
+    return uint(time) * 1664525u + 1013904223u;
+}
+
+vec2 randomSampleUnitCircle()
+{
+    uint seed = random();
+    float r = sqrt(seed);
+    float theta = 6.28318530718 * seed;
+    return vec2(r, theta);
+}
+
+
 
 bool isShadowed(vec3 pos, RenderItem light)
 {
@@ -355,7 +367,7 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
             return vec4(hitInfo.material.color, 1);
         }
 
-        vec3 pos      = hit.pos;
+        vec3 pos = hit.pos;
 
         bool shadowed = isShadowed(pos, light);
         vec3 color    = shade(hitInfo, light, shadowed);
@@ -367,6 +379,7 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
         float refl = 1;
         vec3 accum = color;
 
+        // handle reflections
         for (int k = 1; k < reflectionBounces; ++k) {
             refl *= 1. - hitInfo.material.density;
 
@@ -382,6 +395,48 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
             currentRo = currentHit.hit.pos;
             currentRd = reflect(currentRd, currentHit.hit.normal);
             currentRo += 0.0001 * currentRd;
+        }
+
+        // handle refraction
+        // if (hitInfo.material.transparency < 1.) {
+            currentHit = hitInfo; // li
+            currentRo  = pos; // lro
+            currentRd  = reflect(rd, currentHit.hit.normal); // lrd
+            currentRo += 0.0001 * currentRd;
+            float refr = 1;
+
+
+            float n     = 1. / currentHit.material.n;
+            float cosI  = -dot(currentHit.hit.normal, currentHit.ed);
+            float cost2 = 1. - n * n * (1. - cosI * cosI);
+            if (cost2 > 0.) {
+                currentRo = currentHit.hit.pos;
+                currentRd = normalize(-currentHit.ed * n + currentHit.hit.normal * (n * cosI - sqrt(cost2)));
+                currentRo += 0.0001 * currentRd;
+                for (int k = 1; k < 4; ++k) {
+                    // li.d = -1.;
+                    refr *= 1. - currentHit.material.density;
+                    //
+                    currentHit = traceRay(currentRo, currentRd);
+                    shadowed   = isShadowed(currentHit.hit.pos, light);
+                    vec3 color = shade(currentHit, light, shadowed);
+                    //
+                    accum += color * refr;
+                    // float d = length(currentHit.hit.pos - currentRo);
+                    // if ((li.d<.0)||(!li.mat.refraction)) break;
+                    if (currentHit.hit.inside)
+                        n = currentHit.material.n;
+                    else
+                        n = 1. / currentHit.material.n;
+                    cosI  = -dot(currentHit.hit.normal, currentHit.ed);
+                    cost2 = 1. - n * n * (1. - cosI * cosI);
+                    if (cost2 <= 0.)
+                        break;
+                    currentRo = currentHit.hit.pos;
+                    currentRd = normalize(-currentHit.ed * n + currentHit.hit.normal * (n * cosI - sqrt(cost2)));
+                    currentRo += 0.0001 * currentRd;
+                // }
+            }
         }
 
 

@@ -35,4 +35,12 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store) {
         m_gpu_uniforms.density = store.density;
         glProgramUniform1f(m_program, glGetUniformLocation(m_program, "density"), store.density);
     }
+    if (store.n != m_gpu_uniforms.n) {
+        m_gpu_uniforms.n = store.n;
+        glProgramUniform1f(m_program, glGetUniformLocation(m_program, "n"), store.n);
+    }
+    if (store.time != m_gpu_uniforms.time) {
+        m_gpu_uniforms.time = store.time;
+        glProgramUniform1ui(m_program, glGetUniformLocation(m_program, "time"), store.time);
+    }
 }

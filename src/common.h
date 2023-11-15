@@ -12,6 +12,8 @@ public:
     float roughness = 0.68;
     float fresnel   = 0.5;
     float density   = 0.8;
+    float n = 1.2;
+    glm::uint32 time;
 };
 
 
