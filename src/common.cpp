@@ -21,6 +21,18 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store) {
     }
     if (store.lightPosition != m_gpu_uniforms.lightPosition) {
         m_gpu_uniforms.lightPosition = store.lightPosition;
-        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "light.position"), 1, glm::value_ptr(store.lightPosition));
+        glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "lightPosition"), 1, glm::value_ptr(store.lightPosition));
+    }
+    if (store.roughness != m_gpu_uniforms.roughness) {
+        m_gpu_uniforms.roughness = store.roughness;
+        glProgramUniform1f(m_program, glGetUniformLocation(m_program, "roughness"), store.roughness);
+    }
+    if (store.fresnel != m_gpu_uniforms.fresnel) {
+        m_gpu_uniforms.fresnel = store.fresnel;
+        glProgramUniform1f(m_program, glGetUniformLocation(m_program, "fresnel"), store.fresnel);
+    }
+    if (store.density != m_gpu_uniforms.density) {
+        m_gpu_uniforms.density = store.density;
+        glProgramUniform1f(m_program, glGetUniformLocation(m_program, "density"), store.density);
     }
 }
