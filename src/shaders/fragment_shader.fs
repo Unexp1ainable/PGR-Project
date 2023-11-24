@@ -114,6 +114,21 @@ RenderItem createDisc(vec3 position, vec3 normal, vec3 direction, float size, Ma
 }
 
 RenderItem createPointLight(vec3 position, Material material)
+// float y1 = baoc + t * bard;
+
+// bool check1 = y1 > EPSILON && y1 < baba && t > EPSILON;
+
+// float y2 = baoc + t2 * bard;
+// bool check2 = y2 > EPSILON && y2 < baba && t2 > EPSILON;
+
+// float res_t = check1 ? t : t2;
+// res_t = check2 ? t2 : -1;
+// float y = check1 ? y1 : y2;
+
+// vec3 normal = ((oc + res_t * rd - ba * y / baba) / ra);
+// normal = check1 ? normal : -normal;
+// bool inside = check1 ? true : false;
+// return Hit(res_t, normal, ro + rd * res_t, inside);
 {
     RenderItem item;
     item.type     = TYPE_POINT_LIGHT;
@@ -124,7 +139,7 @@ RenderItem createPointLight(vec3 position, Material material)
 
 RenderItem sphere   = createSphere(vec3(1, 1, 2), 0.2, materialRed);
 RenderItem cylinder = createCylinder(vec3(0, 0, 2), vec3(0, 1, 0), 0.2, 0.5, materialGreen);
-RenderItem plane    = createPlane(vec3(-1, 0.5, 2), vec3(0, 1, 0), vec3(1, 0, 0), 0.5, materialBlue);
+RenderItem plane    = createPlane(vec3(-2, 0.5, 2), vec3(0, 1, 0), vec3(1, 0, 0), 0.5, materialBlue);
 RenderItem light    = RenderItem(TYPE_POINT_LIGHT, lightPosition, vec3(0, 0, 0), vec3(0, 0, 0), 0, 2, materialWhite);
 
 Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
@@ -135,6 +150,7 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
     float b = 2 * dot(rd, sphereToRay);
     float c = dot(sphere.position, sphere.position) + dot(ro, ro) - 2.0 * dot(sphere.position, ro) - sphere.radius * sphere.radius;
     float d = b * b - 4 * a * c;
+
     if (d <= EPSILON) {
         return NO_HIT;
     }
@@ -146,7 +162,7 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
     float t  = t1 > EPSILON * 10 ? t1 : t2;
     t        = t > EPSILON * 10 ? t : -1;
     vec3 pos = ro + rd * t;
-    return Hit(t, normalize(pos - sphere.position), pos, t == t2);
+    return Hit(t, normalize(pos - sphere.position), pos, sign(t) != sign(t2));
 }
 
 // Stolen from https://www.shadertoy.com/view/4lcSRn
@@ -175,18 +191,33 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     float t  = (-k1 - h) / k2;
     float t2 = (-k1 + h) / k2;
 
-    // t = t < 0. ? t2 : t;
-
     // body
     float y = baoc + t * bard;
+
     if (y > EPSILON && y < baba && t > EPSILON)
         return Hit(t, ((oc + t * rd - ba * y / baba) / ra), ro + rd * t, true);
 
     y = baoc + t2 * bard;
-    if (y > EPSILON && y < baba)
-        return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2, false);
 
+    if (y > EPSILON && y < baba && t2 > EPSILON)
+        return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2, false);
     return NO_HIT;
+
+    float y1 = baoc + t * bard;
+
+    // bool check1 = y1 > EPSILON && y1 < baba && t > EPSILON;
+
+    // float y2 = baoc + t2 * bard;
+    // bool check2 = y2 > EPSILON && y2 < baba && t2 > EPSILON;
+
+    // float res_t = check1 ? t : t2;
+    // res_t = check2 || check1 ? res_t : -1;
+    // float y = check1 ? y1 : y2;
+
+    // vec3 normal = ((oc + res_t * rd - ba * y / baba) / ra);
+    // normal = check1 ? normal : -normal;
+    // bool inside = check1 ? true : false;
+    // return Hit(res_t, normal, ro + rd * res_t, inside);
 }
 
 
@@ -241,9 +272,9 @@ HitInfo traceRay(vec3 ro, vec3 rd)
 {
     const int itemCount         = 8;
     RenderItem floor_           = createPlane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 5, materialGray);
-    RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
+    RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(-1, 0, 0), vec3(1, 0, 0), 5, materialGray);
     RenderItem left_            = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
-    RenderItem backside_        = createPlane((vec3(0, 0, 4)), vec3(0, 0, 1), vec3(1, 0, 0), 5, materialGray);
+    RenderItem backside_        = createPlane((vec3(0, 0, 4)), vec3(0, 0, -1), vec3(1, 0, 0), 5, materialGray);
     RenderItem items[itemCount] = { sphere, cylinder, plane, light, floor_, right_, backside_, left_ };
 
 
@@ -356,14 +387,14 @@ float calculateShadow(vec3 pos, RenderItem light)
     vec3 lightDir      = normalize(light.position - pos);
     vec3 perpLightDir1 = normalize(cross(lightDir, vec3(lightDir.x + 1, lightDir.y + 1, 0)));
     vec3 perpLightDir2 = normalize(cross(lightDir, perpLightDir1));
-    vec2 st = gl_FragCoord.xy / vec2(screenWidth, screenHeight);
+    vec2 st            = gl_FragCoord.xy / vec2(screenWidth, screenHeight);
 
     // HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, lightDir);
     // vec3 shadowHitPos = pos + shadowHit.hit.t * lightDir;
     // bool res          = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
     // return 1. - float(res);
 
-    float shadow = 0;
+    float shadow    = 0;
     int ashadowRays = 32; // TODO remove
 
 
@@ -371,8 +402,8 @@ float calculateShadow(vec3 pos, RenderItem light)
         vec2 rsample = randomSampleUnitCircle(st);
         // rsample      = vec2(0);
         // vec3 offset = vec3(rsample.x * cos(rsample.y), rsample.x * sin(rsample.y), 0);
-        float r = rsample.x * light.radius;
-        float theta = rsample.y;
+        float r        = rsample.x * light.radius;
+        float theta    = rsample.y;
         vec2 cartesian = vec2(r * cos(theta), r * sin(theta));
 
         vec3 offset = perpLightDir1 * cartesian.x + perpLightDir2 * cartesian.y;
@@ -390,7 +421,7 @@ float calculateShadow(vec3 pos, RenderItem light)
 
 float calculateShadowHard(vec3 pos, RenderItem light)
 {
-    vec3 lightDir      = normalize(light.position - pos);
+    vec3 lightDir = normalize(light.position - pos);
 
     HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, lightDir);
     vec3 shadowHitPos = pos + shadowHit.hit.t * lightDir;
@@ -421,17 +452,18 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
         vec3 accum = color;
 
         // handle reflections
-        for (int k = 1; k < reflectionBounces; ++k) {
+        for (int k = 1; k < 2; ++k) {
             refl *= 1. - hitInfo.material.density;
 
             currentHit = traceRay(currentRo, currentRd);
+            if (currentHit.hit.t < EPSILON)
+                break;
+
             shadow     = calculateShadowHard(currentHit.hit.pos, light);
 
             vec3 color = shade(currentHit, light, shadow);
 
             accum += color * refl;
-            if ((currentHit.material.density < .0))
-                break;
 
             currentRo = currentHit.hit.pos;
             currentRd = reflect(currentRd, currentHit.hit.normal);
@@ -439,45 +471,36 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
         }
 
         // handle refraction
-        // if (hitInfo.material.transparency < 1.) {
         currentHit = hitInfo; // li
         currentRo  = pos; // lro
-        currentRd  = reflect(rd, currentHit.hit.normal); // lrd
+
+        float n;
+        if (hitInfo.hit.inside)
+            n = hitInfo.material.n;
+        else
+            n = 1. / hitInfo.material.n;
+
+        currentRd = refract(normalize(rd), normalize(currentHit.hit.normal), n); // lrd
         currentRo += 0.0001 * currentRd;
         float refr = 1;
 
+        for (int k = 1; k < 4; ++k) {
+            refr *= 1. - currentHit.material.density;
+            currentHit = traceRay(currentRo, currentRd);
+            if (currentHit.hit.t < EPSILON)
+                break;
 
-        float n     = 1. / currentHit.material.n;
-        float cosI  = -dot(currentHit.hit.normal, currentHit.ed);
-        float cost2 = 1. - n * n * (1. - cosI * cosI);
-        if (cost2 > 0.) {
-            currentRo = currentHit.hit.pos;
-            currentRd = normalize(-currentHit.ed * n + currentHit.hit.normal * (n * cosI - sqrt(cost2)));
-            currentRo += 0.0001 * currentRd;
-            for (int k = 1; k < 4; ++k) {
-                // li.d = -1.;
-                refr *= 1. - currentHit.material.density;
-                //
-                currentHit = traceRay(currentRo, currentRd);
-                shadow     = calculateShadowHard(currentHit.hit.pos, light);
-                vec3 color = shade(currentHit, light, shadow);
-                //
-                accum += color * refr;
-                // float d = length(currentHit.hit.pos - currentRo);
-                // if ((li.d<.0)||(!li.mat.refraction)) break;
-                if (currentHit.hit.inside)
-                    n = currentHit.material.n;
-                else
-                    n = 1. / currentHit.material.n;
-                cosI  = -dot(currentHit.hit.normal, currentHit.ed);
-                cost2 = 1. - n * n * (1. - cosI * cosI);
-                if (cost2 <= 0.)
-                    break;
-                currentRo = currentHit.hit.pos;
-                currentRd = normalize(-currentHit.ed * n + currentHit.hit.normal * (n * cosI - sqrt(cost2)));
-                currentRo += 0.0001 * currentRd;
-                // }
-            }
+            shadow     = calculateShadowHard(currentHit.hit.pos, light);
+            vec3 color = shade(currentHit, light, 0);
+            accum += color * refr;
+
+            if (currentHit.hit.inside)
+                n = currentHit.material.n;
+            else
+                n = 1. / currentHit.material.n;
+
+            currentRd = refract(normalize(currentRd), -normalize(currentHit.hit.normal), n); // lrd
+            currentRo = currentHit.hit.pos + 0.0001 * currentRd;
         }
 
 
