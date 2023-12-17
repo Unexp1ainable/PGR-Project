@@ -372,12 +372,21 @@ float random(vec2 st)
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
+// https://www.shadertoy.com/view/4djSRW
+float hash12(vec2 p)
+{
+	vec3 p3  = fract(vec3(p.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
 
 vec2 randomSampleUnitCircle(vec2 st)
 {
-    float seed  = random(st);
+    float seed  = hash12(st);
     float r     = sqrt(seed);
-    float theta = 6.28318530718 * seed;
+    float seed2 = hash12(vec2(st.y, st.x));
+    float theta = 6.28318530718 * seed2;
     return vec2(r, theta);
 }
 
@@ -385,28 +394,22 @@ vec2 randomSampleUnitCircle(vec2 st)
 float calculateShadow(vec3 pos, RenderItem light)
 {
     vec3 lightDir      = normalize(light.position - pos);
-    vec3 perpLightDir1 = normalize(cross(lightDir, vec3(lightDir.x + 1, lightDir.y + 1, 0)));
+    vec3 perpLightDir1 = normalize(cross(lightDir, vec3(lightDir.x+1, lightDir.y+1, lightDir.z-1)));
     vec3 perpLightDir2 = normalize(cross(lightDir, perpLightDir1));
-    vec2 st            = gl_FragCoord.xy / vec2(screenWidth, screenHeight);
-
-    // HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, lightDir);
-    // vec3 shadowHitPos = pos + shadowHit.hit.t * lightDir;
-    // bool res          = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
-    // return 1. - float(res);
+    vec2 seed            = gl_FragCoord.xy;
 
     float shadow    = 0;
-    int ashadowRays = 32; // TODO remove
+    int ashadowRays = 8; // TODO remove
 
 
     for (int i = 0; i < ashadowRays; i++) {
-        vec2 rsample = randomSampleUnitCircle(st);
-        // rsample      = vec2(0);
-        // vec3 offset = vec3(rsample.x * cos(rsample.y), rsample.x * sin(rsample.y), 0);
-        float r        = rsample.x * light.radius;
-        float theta    = rsample.y;
-        vec2 cartesian = vec2(r * cos(theta), r * sin(theta));
+        vec2 rsample = randomSampleUnitCircle(seed);
+        float r     = rsample.x * light.radius;
+        float theta = rsample.y;
+        float x     = r * cos(theta);
+        float y     = r * sin(theta);
 
-        vec3 offset = perpLightDir1 * cartesian.x + perpLightDir2 * cartesian.y;
+        vec3 offset = perpLightDir1 * x + perpLightDir2 * y;
         vec3 rayDir = normalize(light.position + offset - pos);
 
         HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, rayDir);
@@ -414,7 +417,10 @@ float calculateShadow(vec3 pos, RenderItem light)
         bool res          = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
 
         shadow += float(!res);
-        st += rsample.xx;
+
+        float v = float(i+1)*.152;
+        vec2 pos = (gl_FragCoord.xy * v + 50.0);
+        seed = gl_FragCoord.xy * pos;
     }
     return shadow / float(ashadowRays);
 }
@@ -459,7 +465,7 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
             if (currentHit.hit.t < EPSILON)
                 break;
 
-            shadow     = calculateShadowHard(currentHit.hit.pos, light);
+            shadow = calculateShadowHard(currentHit.hit.pos, light);
 
             vec3 color = shade(currentHit, light, shadow);
 
