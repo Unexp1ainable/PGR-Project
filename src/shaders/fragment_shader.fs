@@ -162,7 +162,11 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
     float t  = t1 > EPSILON * 10 ? t1 : t2;
     t        = t > EPSILON * 10 ? t : -1;
     vec3 pos = ro + rd * t;
-    return Hit(t, normalize(pos - sphere.position), pos, sign(t) != sign(t2));
+    if (sign(t1) != sign(t2)) {
+        return Hit(t, normalize(pos - sphere.position), pos, true);
+    } else {
+        return Hit(t, normalize(pos - sphere.position), pos, false);
+    }
 }
 
 // Stolen from https://www.shadertoy.com/view/4lcSRn
@@ -195,12 +199,12 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     float y = baoc + t * bard;
 
     if (y > EPSILON && y < baba && t > EPSILON)
-        return Hit(t, ((oc + t * rd - ba * y / baba) / ra), ro + rd * t, true);
+        return Hit(t, ((oc + t * rd - ba * y / baba) / ra), ro + rd * t, false);
 
     y = baoc + t2 * bard;
 
     if (y > EPSILON && y < baba && t2 > EPSILON)
-        return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2, false);
+        return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2, true);
     return NO_HIT;
 }
 
@@ -254,12 +258,21 @@ Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
 
 HitInfo traceRay(vec3 ro, vec3 rd)
 {
-    const int itemCount         = 8;
-    RenderItem floor_           = createPlane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 5, materialGray);
-    RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(-1, 0, 0), vec3(1, 0, 0), 5, materialGray);
-    RenderItem left_            = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
-    RenderItem backside_        = createPlane((vec3(0, 0, 4)), vec3(0, 0, -1), vec3(1, 0, 0), 5, materialGray);
-    RenderItem items[itemCount] = { sphere, cylinder, plane, light, floor_, right_, backside_, left_ };
+    const int itemCount         = 5;
+    RenderItem floor_           = createPlane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 8, materialGray);
+    // RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(-1, 0, 0), vec3(1, 0, 0), 5, materialGray);
+    // RenderItem left_            = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
+    // RenderItem backside_        = createPlane((vec3(0, 0, 4)), vec3(0, 0, -1), vec3(1, 0, 0), 5, materialGray);
+    RenderItem items[itemCount] = { 
+        sphere, 
+        cylinder, 
+        plane, 
+        light, 
+        floor_, 
+        // right_, 
+        // backside_, 
+        // left_ 
+        };
 
 
     Hit result = NO_HIT;
@@ -447,12 +460,12 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
         float refracted_angle = asin(n1/n2 * sin(incident_angle));
 
         float rcf_r = (n1 * cos(incident_angle) - n2 * cos(refracted_angle)) / (n1 * cos(incident_angle) + n2 * cos(refracted_angle));
-        float refraction_coef = rcf_r * rcf_r;
-        float transmission_coef = 1 - refraction_coef;
+        float reflection_coef = rcf_r * rcf_r;
+        float transmission_coef = 1 - reflection_coef;
 
         float critical_angle = asin(n2/n1);
         if (incident_angle > critical_angle) {
-            refraction_coef = 1;
+            reflection_coef = 1;
             transmission_coef = 0;
         }
  
@@ -515,7 +528,9 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
             currentRo = currentHit.hit.pos + 0.0001 * currentRd;
         }
 
-        accum += refr_accum * transmission_coef + refl_accum * refraction_coef;
+        accum += refr_accum * transmission_coef + refl_accum * reflection_coef;
+        // return vec4(reflection_coef, transmission_coef, 0, 1);
+
         return vec4(accum, 1);
 
     } else {
