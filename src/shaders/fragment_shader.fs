@@ -163,7 +163,7 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
     t        = t > EPSILON * 10 ? t : -1;
     vec3 pos = ro + rd * t;
     if (sign(t1) != sign(t2)) {
-        return Hit(t, normalize(pos - sphere.position), pos, true);
+        return Hit(t, -normalize(pos - sphere.position), pos, true);
     } else {
         return Hit(t, normalize(pos - sphere.position), pos, false);
     }
@@ -524,7 +524,7 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
             else
                 n = 1. / currentHit.material.n;
 
-            currentRd = refract(normalize(currentRd), -normalize(currentHit.hit.normal), n); // lrd
+            currentRd = refract(currentRd, currentHit.hit.normal, n); // lrd
             currentRo = currentHit.hit.pos + 0.0001 * currentRd;
         }
 
