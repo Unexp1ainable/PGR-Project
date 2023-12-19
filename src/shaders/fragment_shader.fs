@@ -60,7 +60,7 @@ uniform float roughness = 0.68;
 uniform float fresnel   = 0.5;
 uniform float density   = 0.8;
 
-Material materialRed   = Material(vec3(1, 0, 0), n, roughness, fresnel, 0.0);
+Material materialRed   = Material(vec3(1, 0, 0), n, 0.1, 0.1, 0.0);
 Material materialGreen = Material(vec3(0, 1, 0), 1., roughness, fresnel, density);
 Material materialBlue  = Material(vec3(0, 0, 1), 1., roughness, fresnel, density);
 Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, fresnel, density);
@@ -202,22 +202,6 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     if (y > EPSILON && y < baba && t2 > EPSILON)
         return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2, false);
     return NO_HIT;
-
-    float y1 = baoc + t * bard;
-
-    // bool check1 = y1 > EPSILON && y1 < baba && t > EPSILON;
-
-    // float y2 = baoc + t2 * bard;
-    // bool check2 = y2 > EPSILON && y2 < baba && t2 > EPSILON;
-
-    // float res_t = check1 ? t : t2;
-    // res_t = check2 || check1 ? res_t : -1;
-    // float y = check1 ? y1 : y2;
-
-    // vec3 normal = ((oc + res_t * rd - ba * y / baba) / ra);
-    // normal = check1 ? normal : -normal;
-    // bool inside = check1 ? true : false;
-    // return Hit(res_t, normal, ro + rd * res_t, inside);
 }
 
 
@@ -366,16 +350,10 @@ vec3 shade(HitInfo hitInfo, RenderItem light, float shadow)
     return shadeCookTorrance(hitInfo, light, shadow);
 }
 
-float random(vec2 st)
-{
-    // st *= time;
-    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
-}
-
 // https://www.shadertoy.com/view/4djSRW
 float hash12(vec2 p)
 {
-	vec3 p3  = fract(vec3(p.xyx) * .1031);
+    vec3 p3 = fract(vec3(p.xyx) * .1031);
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
 }
@@ -394,9 +372,9 @@ vec2 randomSampleUnitCircle(vec2 st)
 float calculateShadow(vec3 pos, RenderItem light)
 {
     vec3 lightDir      = normalize(light.position - pos);
-    vec3 perpLightDir1 = normalize(cross(lightDir, vec3(lightDir.x+1, lightDir.y+1, lightDir.z-1)));
+    vec3 perpLightDir1 = normalize(cross(lightDir, vec3(lightDir.x + 1, lightDir.y + 1, lightDir.z - 1)));
     vec3 perpLightDir2 = normalize(cross(lightDir, perpLightDir1));
-    vec2 seed            = gl_FragCoord.xy;
+    vec2 seed          = gl_FragCoord.xy;
 
     float shadow    = 0;
     int ashadowRays = 8; // TODO remove
@@ -404,10 +382,10 @@ float calculateShadow(vec3 pos, RenderItem light)
 
     for (int i = 0; i < ashadowRays; i++) {
         vec2 rsample = randomSampleUnitCircle(seed);
-        float r     = rsample.x * light.radius;
-        float theta = rsample.y;
-        float x     = r * cos(theta);
-        float y     = r * sin(theta);
+        float r      = rsample.x * light.radius;
+        float theta  = rsample.y;
+        float x      = r * cos(theta);
+        float y      = r * sin(theta);
 
         vec3 offset = perpLightDir1 * x + perpLightDir2 * y;
         vec3 rayDir = normalize(light.position + offset - pos);
@@ -418,9 +396,9 @@ float calculateShadow(vec3 pos, RenderItem light)
 
         shadow += float(!res);
 
-        float v = float(i+1)*.152;
+        float v  = float(i + 1) * .152;
         vec2 pos = (gl_FragCoord.xy * v + 50.0);
-        seed = gl_FragCoord.xy * pos;
+        seed     = gl_FragCoord.xy * pos;
     }
     return shadow / float(ashadowRays);
 }
@@ -457,9 +435,33 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
         float refl = 1;
         vec3 accum = color;
 
+        float n1, n2;
+        if (!hitInfo.hit.inside) {
+            n1 = 1.;
+            n2 = hitInfo.material.n;
+        } else {
+            n1 = hitInfo.material.n;
+            n2 = 1.;
+        }
+        float incident_angle = acos(dot(-rd, hitInfo.hit.normal));
+        float refracted_angle = asin(n1/n2 * sin(incident_angle));
+
+        float rcf_r = (n1 * cos(incident_angle) - n2 * cos(refracted_angle)) / (n1 * cos(incident_angle) + n2 * cos(refracted_angle));
+        float refraction_coef = rcf_r * rcf_r;
+        float transmission_coef = 1 - refraction_coef;
+
+        float critical_angle = asin(n2/n1);
+        if (incident_angle > critical_angle) {
+            refraction_coef = 1;
+            transmission_coef = 0;
+        }
+ 
+        vec3 refl_accum = vec3(0);
         // handle reflections
-        for (int k = 1; k < 2; ++k) {
+        for (int k = 1; k < 4; ++k) {
             refl *= 1. - hitInfo.material.density;
+            if (refl < 0.01)
+                break;
 
             currentHit = traceRay(currentRo, currentRd);
             if (currentHit.hit.t < EPSILON)
@@ -469,7 +471,7 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
 
             vec3 color = shade(currentHit, light, shadow);
 
-            accum += color * refl;
+            refl_accum += color * refl;
 
             currentRo = currentHit.hit.pos;
             currentRd = reflect(currentRd, currentHit.hit.normal);
@@ -486,19 +488,23 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
         else
             n = 1. / hitInfo.material.n;
 
-        currentRd = refract(normalize(rd), normalize(currentHit.hit.normal), n); // lrd
+        currentRd = refract(rd, currentHit.hit.normal, n); // lrd
         currentRo += 0.0001 * currentRd;
         float refr = 1;
 
-        for (int k = 1; k < 4; ++k) {
+        vec3 refr_accum = vec3(0);
+        for (int k = 1; k < 3; ++k) {
             refr *= 1. - currentHit.material.density;
+            if (refr < 0.0001)
+                break;
+
             currentHit = traceRay(currentRo, currentRd);
             if (currentHit.hit.t < EPSILON)
                 break;
 
             shadow     = calculateShadowHard(currentHit.hit.pos, light);
-            vec3 color = shade(currentHit, light, 0);
-            accum += color * refr;
+            vec3 color = shade(currentHit, light, shadow);
+            refr_accum += color * currentHit.material.density;
 
             if (currentHit.hit.inside)
                 n = currentHit.material.n;
@@ -509,7 +515,7 @@ vec4 whatColorIsThere(vec3 ro, vec3 rd)
             currentRo = currentHit.hit.pos + 0.0001 * currentRd;
         }
 
-
+        accum += refr_accum * transmission_coef + refl_accum * refraction_coef;
         return vec4(accum, 1);
 
     } else {
