@@ -268,10 +268,10 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         cylinder, 
         plane, 
         light, 
-        floor_, 
         // right_, 
         // backside_, 
         // left_ 
+        floor_, // floor must be the last one
         };
 
 
@@ -280,6 +280,7 @@ HitInfo traceRay(vec3 ro, vec3 rd)
     bool isLight = false;
 
     float min_t = 1000000;
+    int hitIndex = 0;
 
     for (int i = 0; i < itemCount; ++i) {
         Hit hit = traceIntersect(ro, rd, items[i]);
@@ -292,7 +293,16 @@ HitInfo traceRay(vec3 ro, vec3 rd)
             result   = hit;
             material = items[i].material;
             isLight  = items[i].type == TYPE_POINT_LIGHT;
+            hitIndex = i;
         }
+    }
+
+    if (hitIndex == itemCount - 1) {
+        vec4 newColor = vec4(0, 0, 0, 1);
+        if (int(floor(result.pos.x)) % 2 == int(floor(result.pos.z)) % 2) {
+            newColor = vec4(1, 1, 1, 1);
+        }
+        material.color = newColor.xyz;
     }
 
     return HitInfo(result, -rd, material, isLight);
@@ -390,10 +400,8 @@ float calculateShadow(vec3 pos, RenderItem light)
     vec2 seed          = gl_FragCoord.xy;
 
     float shadow    = 0;
-    int ashadowRays = 8; // TODO remove
 
-
-    for (int i = 0; i < ashadowRays; i++) {
+    for (int i = 0; i < shadowRays; i++) {
         vec2 rsample = randomSampleUnitCircle(seed);
         float r      = rsample.x * light.radius;
         float theta  = rsample.y;
@@ -413,7 +421,7 @@ float calculateShadow(vec3 pos, RenderItem light)
         vec2 pos = (gl_FragCoord.xy * v + 50.0);
         seed     = gl_FragCoord.xy * pos;
     }
-    return shadow / float(ashadowRays);
+    return shadow / float(shadowRays);
 }
 
 float calculateShadowHard(vec3 pos, RenderItem light)
