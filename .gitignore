@@ -36,3 +36,4 @@ build
 .vscode
 src/generated
 imgui.ini
+log.log

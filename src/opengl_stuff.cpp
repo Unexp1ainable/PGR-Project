@@ -1,13 +1,224 @@
 #include "opengl_stuff.h"
+#include "constants.h"
+#include "generated/shaders/fragment_shader.h"
+#include "generated/shaders/vertex_shader.h"
+#include "generated/shaders/show_texture.h"
 
 #include <geGL/StaticCalls.h>
 
+#include <fstream>
 #include <iostream>
+#include <sstream>
 
 
 using namespace ge::gl;
 
-GLuint createShader(GLenum type, std::string const& src)
+
+std::string loadFile(std::string path)
+{
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file: " + path);
+    }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+void GLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* msg, const void* data)
+{
+    std::string _source;
+    std::string _type;
+    std::string _severity;
+
+    switch (source) {
+        case GL_DEBUG_SOURCE_API:
+            _source = "API";
+            break;
+
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+            _source = "WINDOW SYSTEM";
+            break;
+
+        case GL_DEBUG_SOURCE_SHADER_COMPILER:
+            _source = "SHADER COMPILER";
+            break;
+
+        case GL_DEBUG_SOURCE_THIRD_PARTY:
+            _source = "THIRD PARTY";
+            break;
+
+        case GL_DEBUG_SOURCE_APPLICATION:
+            _source = "APPLICATION";
+            break;
+
+        case GL_DEBUG_SOURCE_OTHER:
+            _source = "UNKNOWN";
+            break;
+
+        default:
+            _source = "UNKNOWN";
+            break;
+    }
+
+    switch (type) {
+        case GL_DEBUG_TYPE_ERROR:
+            _type = "ERROR";
+            break;
+
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+            _type = "DEPRECATED BEHAVIOR";
+            break;
+
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+            _type = "UDEFINED BEHAVIOR";
+            break;
+
+        case GL_DEBUG_TYPE_PORTABILITY:
+            _type = "PORTABILITY";
+            break;
+
+        case GL_DEBUG_TYPE_PERFORMANCE:
+            _type = "PERFORMANCE";
+            break;
+
+        case GL_DEBUG_TYPE_OTHER:
+            _type = "OTHER";
+            break;
+
+        case GL_DEBUG_TYPE_MARKER:
+            _type = "MARKER";
+            break;
+
+        default:
+            _type = "UNKNOWN";
+            break;
+    }
+
+    switch (severity) {
+        case GL_DEBUG_SEVERITY_HIGH:
+            _severity = "HIGH";
+            break;
+
+        case GL_DEBUG_SEVERITY_MEDIUM:
+            _severity = "MEDIUM";
+            break;
+
+        case GL_DEBUG_SEVERITY_LOW:
+            _severity = "LOW";
+            break;
+
+        case GL_DEBUG_SEVERITY_NOTIFICATION:
+            _severity = "NOTIFICATION";
+            break;
+
+        default:
+            _severity = "UNKNOWN";
+            break;
+    }
+
+    printf("%d: %s of %s severity, raised from %s: %s\n", id, _type.c_str(), _severity.c_str(), _source.c_str(), msg);
+}
+
+OpenGLContext::OpenGLContext()
+{
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(GLDebugMessageCallback, NULL);
+
+    std::string vSrc = VERTEX_SHADER_SOURCE;
+    std::string fSrc = FRAGMENT_SHADER_SOURCE;
+    std::string tfSrc = SHOW_TEXTURE_SOURCE;
+
+    // TODO remove
+    vSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/vertex_shader.vs");
+    fSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/fragment_shader.fs");
+    tfSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/show_texture.fs");
+
+    auto vShader = createShader(GL_VERTEX_SHADER, vSrc);
+    auto fShader = createShader(GL_FRAGMENT_SHADER, fSrc);
+    auto tfShader = createShader(GL_FRAGMENT_SHADER, tfSrc);
+    
+
+    glGenFramebuffers(1, &m_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
+
+
+    // Create the gbuffer textures
+    glGenTextures(1, &m_shadowTexture);
+    glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_shadowTexture, 0);
+
+    glGenTextures(1, &m_specDiffTexture);
+    glBindTexture(GL_TEXTURE_2D, m_specDiffTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, m_specDiffTexture, 0);
+
+    glGenTextures(1, &m_ambientTexture);
+    glBindTexture(GL_TEXTURE_2D, m_ambientTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, m_ambientTexture, 0);
+
+    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, drawBuffers);
+
+    auto status = glCheckNamedFramebufferStatus(m_fbo, GL_FRAMEBUFFER);
+    if (glCheckNamedFramebufferStatus(m_fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "framebuffer incomplete " << status << std::endl;
+    }
+
+    m_renderPrg = createProgram({ vShader, fShader });
+    m_showTexturePrg = createProgram({ vShader, tfShader });
+    m_vao       = createVAO();
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ambientTexture, 0);
+
+}
+
+void OpenGLContext::useRenderProgram() const
+{
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBindVertexArray(m_vao);
+    glUseProgram(m_renderPrg);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
+    glBindVertexArray(0);
+}
+
+void OpenGLContext::showTexture()
+{
+    glUseProgram(m_showTexturePrg);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo);
+    glReadBuffer(GL_COLOR_ATTACHMENT2);
+
+    // Bind the texture to texture unit 0
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_ambientTexture);
+    // Bind the shader program and set the texture uniform
+    glUniform1i(glGetUniformLocation(m_showTexturePrg, "myTexture"), 0); // Assuming texture unit 0
+
+
+    glBindVertexArray(m_vao);
+
+
+    // Render a fullscreen quad
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
+
+    // Unbind the texture and shader program
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindVertexArray(0);
+
+    glUseProgram(0);
+}
+
+GLuint OpenGLContext::createShader(GLenum type, std::string const& src)
 {
     auto id            = glCreateShader(type);
     char const* srcs[] = { src.c_str() };
@@ -29,7 +240,7 @@ GLuint createShader(GLenum type, std::string const& src)
     return id;
 }
 
-GLuint createProgram(std::vector<GLuint> const& shaders)
+GLuint OpenGLContext::createProgram(std::vector<GLuint> const& shaders)
 {
     auto id = glCreateProgram();
     for (auto const& shader : shaders)
@@ -51,7 +262,7 @@ GLuint createProgram(std::vector<GLuint> const& shaders)
     return id;
 }
 
-GLuint createVAO()
+GLuint OpenGLContext::createVAO()
 {
     GLuint vbo; // buffer handle
     glCreateBuffers(1, &vbo);

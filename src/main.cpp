@@ -1,6 +1,5 @@
 #include <SDL2/SDL_events.h>
 #include <chrono>
-#include <fstream>
 #include <glm/matrix.hpp>
 #include <iostream>
 #include <sstream>
@@ -23,8 +22,6 @@
 #include <imgui_impl_sdl2.h>
 
 #include "camera/freelook_camera.h"
-#include "generated/shaders/fragment_shader.h"
-#include "generated/shaders/vertex_shader.h"
 #include "imgui_stuff.h"
 #include "opengl_stuff.h"
 #include "sdl_stuff.h"
@@ -104,10 +101,10 @@ void processInput(bool& running, FreeLookCamera& camera, UniformStore& uniforms)
     uniforms.cameraMatrix = glm::inverse(camera.getView());
 }
 
-void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
+void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
 {
     UniformStore uniforms;
-    UniformSynchronizer synchronizer(prg);
+    UniformSynchronizer synchronizer(oglCtx.getRenderProgram());
     FreeLookCamera camera {};
     bool running = true;
 
@@ -120,7 +117,6 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
         float fps                              = 1 / duration.count();
         start                                  = std::chrono::high_resolution_clock::now();
         processInput(running, camera, uniforms);
-        // uniforms.time = end.time_since_epoch().count() % 10000;
 
         // Update the uniforms
         synchronizer.syncUniforms(uniforms);
@@ -133,29 +129,13 @@ void mainloop(SDL_Window* window, GLuint vao, GLuint prg)
 
         drawGui(uniforms, fps);
 
-        glClearColor(0, 0, 0, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glBindVertexArray(vao);
-        glUseProgram(prg);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
-        glBindVertexArray(0);
+        oglCtx.useRenderProgram();
+        oglCtx.showTexture();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
     }
-}
-
-
-std::string loadFile(std::string path)
-{
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        throw std::runtime_error("Failed to open file: " + path);
-    }
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
 }
 
 
@@ -169,19 +149,9 @@ int main(int argc, char* argv[])
 
     auto imGuiGuard = ImGui_Guard(window, context);
 
-    std::string vSrc = VERTEX_SHADER_SOURCE;
-    std::string fSrc = FRAGMENT_SHADER_SOURCE;
+    auto openglContext = OpenGLContext();
 
-    vSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/vertex_shader.vs");
-    fSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/fragment_shader.fs");
-
-    auto vShader = createShader(GL_VERTEX_SHADER, vSrc);
-    auto fShader = createShader(GL_FRAGMENT_SHADER, fSrc);
-
-    GLuint prg = createProgram({ vShader, fShader });
-
-    auto vao = createVAO();
-    mainloop(window, vao, prg);
+    mainloop(window, openglContext);
 
     return 0;
 }

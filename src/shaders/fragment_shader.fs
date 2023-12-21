@@ -1,7 +1,10 @@
 #version 460
-layout(location = 0) out vec4 fColor;
+layout(location = 0) out float fShadow;
+layout(location = 1) out vec4 fSpecDiff;
+layout(location = 2) out vec4 fAmbient;
 
 in vec4 gl_FragCoord;
+
 
 #define ORIGIN  vec3(0, 0, 0)
 #define EPSILON 0.00001
@@ -328,7 +331,7 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, RenderItem light, float shadow)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, float shadow)
+vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light)
 {
     float roughness = hitInfo.material.roughness;
     float F0        = hitInfo.material.fresnel;
@@ -361,7 +364,6 @@ vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, float shadow)
 
     vec3 spec = (NdotV * NdotL == 0.) ? vec3(0.) : vec3(fres * geo * rough) / (NdotV * NdotL);
     vec3 res  = NdotL * ((1. - K) * spec + K * hitInfo.material.color) * light.material.color;
-    res *= shadow;
     res = max(res, 0.1 * hitInfo.material.color);
 
     return res;
@@ -370,7 +372,9 @@ vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light, float shadow)
 vec3 shade(HitInfo hitInfo, RenderItem light, float shadow)
 {
     // return shadeBlinnPhong(hitInfo, light, shadowed);
-    return shadeCookTorrance(hitInfo, light, shadow);
+    vec3 color =  shadeCookTorrance(hitInfo, light);
+    vec3 ambient = 0.1 * hitInfo.material.color;
+    return max(color*shadow, ambient);
 }
 
 // https://www.shadertoy.com/view/4djSRW
@@ -557,5 +561,8 @@ void main()
 
     vec3 rd = normalize(re - ro);
 
-    fColor = whatColorIsThere(ro, rd);
+    fAmbient = whatColorIsThere(ro, rd);
+    // fAmbient = vec4(0, 1, 1, 1);
+    fSpecDiff = vec4(0, 1, 0, 1);
+    fShadow = 1;
 }
