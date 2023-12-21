@@ -51,7 +51,7 @@ uniform int screenWidth       = 1024;
 uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
 uniform int reflectionBounces = 3;
-uniform int shadowRays        = 4;
+uniform int shadowRays        = 44;
 uniform vec3 lightPosition    = vec3(0, 4, 0);
 uniform float n               = 1.2;
 uniform uint time             = 42;
@@ -61,7 +61,7 @@ uniform float fresnel   = 0.5;
 uniform float density   = 0.8;
 
 Material materialRed   = Material(vec3(1, 0, 0), n, 0.1, 0.1, 0.0);
-Material materialGreen = Material(vec3(0, 1, 0), 1., roughness, fresnel, density);
+Material materialGreen = Material(vec3(0, 1, 0), 1.2, roughness, fresnel, density);
 Material materialBlue  = Material(vec3(0, 0, 1), 1., roughness, fresnel, density);
 Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, fresnel, density);
 Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, fresnel, density);
@@ -259,7 +259,7 @@ Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
 HitInfo traceRay(vec3 ro, vec3 rd)
 {
     const int itemCount         = 5;
-    RenderItem floor_           = createPlane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 8, materialGray);
+    RenderItem floor_           = createPlane((vec3(0, 0, 0)), vec3(0, 1, 0), vec3(1, 0, 0), 4, materialGray);
     // RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(-1, 0, 0), vec3(1, 0, 0), 5, materialGray);
     // RenderItem left_            = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
     // RenderItem backside_        = createPlane((vec3(0, 0, 4)), vec3(0, 0, -1), vec3(1, 0, 0), 5, materialGray);
