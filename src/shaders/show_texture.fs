@@ -56,7 +56,8 @@ void blend()
     vec2 texCoord = gl_FragCoord.xy / textureSize(textureSpecDiff,0);
 
     vec4 shadow = bilateralFilter();
-    shadow = vec4(shadow.xxx, 1.);
+    shadow = vec4(shadow.xxx, 2.);
+    shadow = 1 - shadow;
     vec4 ambient = texture(textureAmbient, texCoord);
     vec4 specularDiffuse = texture(textureSpecDiff, texCoord);
     FragColor = ambient + specularDiffuse * shadow;
@@ -66,11 +67,11 @@ void blend()
 void main()
 {
     blend();
-    // vec2 texCoord = gl_FragCoord.xy / textureSize(textureSpecDiff,0);
+    vec2 texCoord = gl_FragCoord.xy / textureSize(textureSpecDiff,0);
     // FragColor = texture(textureSpecDiff, texCoord);
 
     // FragColor = texture(textureAmbient, texCoord);
-    // vec4 filtered = texture(textureShadows, texCoord);
+    vec4 filtered = texture(textureShadows, texCoord);
     // vec4 filtered = bilateralFilter();
     // vec4 filtered = customFilter();
     // FragColor = vec4(filtered.x, filtered.x, filtered.x, 1.0);

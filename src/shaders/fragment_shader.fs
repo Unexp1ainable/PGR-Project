@@ -163,31 +163,32 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
 Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
 {
     float ra = cylinder.radius;
-    vec3  a  = cylinder.position;
-    vec3  b  = cylinder.position + cylinder.size * cylinder.direction;
+    vec3 a   = cylinder.position;
+    vec3 b   = cylinder.position + cylinder.size * cylinder.direction;
 
-    vec3  ba = b  - a;
-    vec3  oc = ro - a;
-    float baba = dot(ba,ba);
-    float bard = dot(ba,rd);
-    float baoc = dot(ba,oc);
-    float k2 = baba            - bard*bard;
-    float k1 = baba*dot(oc,rd) - baoc*bard;
-    float k0 = baba*dot(oc,oc) - baoc*baoc - ra*ra*baba;
-    float h = k1*k1 - k2*k0;
-    if( h<0.0 ) return NO_HIT;//no intersection
-    h = sqrt(h);
-    float t = (-k1-h)/k2;
+    vec3 ba    = b - a;
+    vec3 oc    = ro - a;
+    float baba = dot(ba, ba);
+    float bard = dot(ba, rd);
+    float baoc = dot(ba, oc);
+    float k2   = baba - bard * bard;
+    float k1   = baba * dot(oc, rd) - baoc * bard;
+    float k0   = baba * dot(oc, oc) - baoc * baoc - ra * ra * baba;
+    float h    = k1 * k1 - k2 * k0;
+    if (h < 0.0)
+        return NO_HIT; // no intersection
+    h       = sqrt(h);
+    float t = (-k1 - h) / k2;
     // body
-    float y = baoc + t*bard;
-    if( y>0.0 && y<baba ) return Hit( t, (oc+t*rd - ba*y/baba)/ra, ro + t*rd, false );
+    float y = baoc + t * bard;
+    if (y > 0.0 && y < baba)
+        return Hit(t, (oc + t * rd - ba * y / baba) / ra, ro + t * rd, false);
     // caps
-    t = ( ((y<0.0) ? 0.0 : baba) - baoc)/bard;
-    if( abs(k1+k2*t)<h )
-    {
-        return Hit( t, ba*sign(y)/sqrt(baba), ro + t*rd, false );
+    t = (((y < 0.0) ? 0.0 : baba) - baoc) / bard;
+    if (abs(k1 + k2 * t) < h) {
+        return Hit(t, ba * sign(y) / sqrt(baba), ro + t * rd, false);
     }
-    return NO_HIT;//no intersection
+    return NO_HIT; // no intersection
 }
 
 
@@ -245,10 +246,17 @@ HitInfo traceRay(vec3 ro, vec3 rd)
     // RenderItem right_           = createPlane((vec3(2.5, 0, 0)), vec3(-1, 0, 0), vec3(1, 0, 0), 5, materialGray);
     // RenderItem left_            = createPlane((vec3(-2.5, 0, 0)), vec3(1, 0, 0), vec3(1, 0, 0), 5, materialGray);
     // RenderItem backside_        = createPlane((vec3(0, 0, 4)), vec3(0, 0, -1), vec3(1, 0, 0), 5, materialGray);
+
+    float x = 0.5;
+    float z = 2.5;
+
+    RenderItem base             = createCylinder(vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1, materialRed);
+    RenderItem body             = createCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9, materialRed);
+    RenderItem head             = createSphere(vec3(x, 0.9, z), 0.2, materialRed);
     RenderItem items[itemCount] = {
-        sphere,
-        cylinder,
-        plane,
+        base,
+        body,
+        head,
         light,
         // right_,
         // backside_,
@@ -391,7 +399,7 @@ vec2 sunflower(int n, int alpha, int i)
 {
     float b     = round(alpha * sqrt(n));
     float r     = radius(i, n, b);
-    float theta = 2 * PI * (i+1) / pow(GOLDEN_RATIO, 2);
+    float theta = 2 * PI * (i + 1) / pow(GOLDEN_RATIO, 2);
     return vec2(r, theta);
 }
 
@@ -408,10 +416,10 @@ float calculateShadow(vec3 pos, RenderItem light)
     for (int i = 0; i < shadowRays; i++) {
         vec2 rsample = randomSampleUnitCircle(seed);
         // vec2 rsample = sunflower(shadowRays, 1, i);
-        float r      = rsample.x * light.radius;
-        float theta  = rsample.y;
-        float x      = r * cos(theta);
-        float y      = r * sin(theta);
+        float r     = rsample.x * light.radius;
+        float theta = rsample.y;
+        float x     = r * cos(theta);
+        float y     = r * sin(theta);
 
         vec3 offset = perpLightDir1 * x + perpLightDir2 * y;
         vec3 rayDir = normalize(light.position + offset - pos);
@@ -420,7 +428,7 @@ float calculateShadow(vec3 pos, RenderItem light)
         vec3 shadowHitPos = pos + shadowHit.hit.t * rayDir;
         bool res          = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
 
-        shadow += float(!res);
+        shadow += float(res);
 
         float v  = float(i + 1) * .152;
         vec2 pos = (gl_FragCoord.xy * v + 50.0);
@@ -455,13 +463,10 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         vec3 pos = hit.pos;
 
         float primaryShadow = calculateShadow(pos + hit.normal * 0.001, light);
-        // primaryShadow = 1 - primaryShadow ;
-        // primaryShadow *= 1 - hitInfo.material.transparency;
-        // primaryShadow = 1 - primaryShadow ;
-        primaryShadow = hitInfo.material.transparency + primaryShadow - hitInfo.material.transparency*primaryShadow;
+        primaryShadow *= 1 - hitInfo.material.transparency ;
 
-        vec3 color          = shade(hitInfo, light);
-        vec3 primaryColor   = hitInfo.material.color;
+        vec3 color        = shade(hitInfo, light);
+        vec3 primaryColor = hitInfo.material.color;
 
         HitInfo currentHit = hitInfo;
         vec3 currentRo     = pos;
@@ -527,11 +532,14 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         currentHit = hitInfo; // li
         currentRo  = pos; // lro
 
-        float n;
-        if (hitInfo.hit.inside)
-            n = hitInfo.material.n;
-        else
-            n = 1. / hitInfo.material.n;
+        float n, n_out;
+        if (hitInfo.hit.inside) {
+            n     = hitInfo.material.n;
+            n_out = 1.;
+        } else {
+            n     = 1. / hitInfo.material.n;
+            n_out = hitInfo.material.n;
+        }
 
         currentRd = refract(rd, currentHit.hit.normal, n); // lrd
         currentRo += 0.0001 * currentRd;
@@ -539,22 +547,25 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 refr_accum   = vec3(0);
         float refr_shadow = 0;
-        for (int k = 1; k < 3; ++k) {
+        for (int k = 1; k < 6; ++k) {
             refr *= currentHit.material.transparency;
             currentHit = traceRay(currentRo, currentRd);
             if (currentHit.hit.t < EPSILON)
                 break;
 
             if (!currentHit.hit.inside) {
-                refr_shadow += calculateShadowHard(currentHit.hit.pos, light) * (1 - currentHit.material.transparency);
+                refr_shadow += calculateShadow(currentHit.hit.pos, light) * (1 - currentHit.material.transparency);
             }
             vec3 color = shade(currentHit, light);
             refr_accum += color * refr;
 
-            if (currentHit.hit.inside)
+            if (currentHit.hit.inside) {
                 n = currentHit.material.n;
-            else
-                n = 1. / currentHit.material.n;
+                n_out = 1.;
+            } else {
+                n = n_out / currentHit.material.n;
+                n_out = currentHit.material.n;
+            }
 
             currentRd = refract(currentRd, currentHit.hit.normal, n); // lrd
             currentRo = currentHit.hit.pos + 0.0001 * currentRd;
@@ -563,7 +574,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
                 break;
         }
 
-        accum += refr_accum * transmission_coef * refr_shadow + refl_accum * reflection_coef * refl_shadow * dinv;
+        accum += refr_accum * transmission_coef  + refl_accum * reflection_coef * refl_shadow * dinv;
         // accum *= primaryShadow;
 
         fSpecDiff = vec4(accum, 1);
@@ -572,7 +583,8 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         fAmbient = vec4(primaryColor * vec3(0.1), 1);
 
         // fSpecDiff = max(fSpecDiff, fAmbient);
-        fShadow = primaryShadow;
+        fShadow = primaryShadow + refr_shadow;
+        // fShadow =  primaryShadow;
 
     } else {
         fSpecDiff = vec4(0, 0, 0, 1);
