@@ -79,7 +79,7 @@ uniform float density      = 0.8;
 Material materialRed   = Material(vec3(1, 0, 0), n, 0.1, 1., 0.);
 Material materialGreen = Material(vec3(0, 1, 0), 1.4, roughness, transparency, density);
 Material materialBlue  = Material(vec3(0, 0, 1), 2.5, roughness, transparency, density);
-Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, 0., 0.7);
+Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, 0., 1.);
 Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, 0., 1.);
 
 
@@ -144,10 +144,10 @@ RenderItem plane    = createPlane(vec3(-2, 0.5, 2), vec3(0, 1, 0), vec3(1, 0, 0)
 RenderItem light    = RenderItem(TYPE_POINT_LIGHT, lightPosition, vec3(0, 0, 0), vec3(0, 0, 0), 0, 2, materialWhite);
 RenderItem light2   = RenderItem(TYPE_POINT_LIGHT, vec3(10, 10, 10), vec3(0, 0, 0), vec3(0, 0, 0), 0, 2, materialWhite);
 
-#define LIGHT_COUNT 2
+#define LIGHT_COUNT 1
 RenderItem[LIGHT_COUNT] lights = {
     light,
-    light2,
+    // light2,
 };
 
 Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
@@ -199,13 +199,20 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     float t = (-k1 - h) / k2;
     // body
     float y = baoc + t * bard;
-    if (y > 0.0 && y < baba)
+    if (y > 0.0 && y < baba && t > EPSILON)
         return Hit(t, (oc + t * rd - ba * y / baba) / ra, ro + t * rd, false);
+        
     // caps
     t = (((y < 0.0) ? 0.0 : baba) - baoc) / bard;
     if (abs(k1 + k2 * t) < h) {
         return Hit(t, ba * sign(y) / sqrt(baba), ro + t * rd, false);
     }
+
+    // second body
+    t = (-k1 + h) / k2;
+    y = baoc + t * bard;
+    if (y > 0.0 && y < baba)
+        return Hit(t, -(oc + t * rd - ba * y / baba) / ra, ro + t * rd, true);
     return NO_HIT; // no intersection
 }
 
@@ -238,6 +245,33 @@ Hit intersectDisc(vec3 ro, vec3 rd, RenderItem plane)
     return Hit(t, plane.normal, ro + rd * t, false);
 }
 
+
+// // returns t and normal
+// Hit intersectWedge( in vec3 ro, in vec3 rd, in vec3 s )
+// {
+//     // intersect plane box
+//     vec3 m  = 1.0/rd;
+//     vec3 z = vec3(rd.x>=0.0?1.0:-1.0, rd.y>=0.0?1.0:-1.0, rd.z>=0.0?1.0:-1.0);
+//     vec3 k = s*z;
+//     vec3 t1 = (-ro - k)*m;
+//     vec3 t2 = (-ro + k)*m;
+//     float tn = max(max(t1.x, t1.y), t1.z);
+//     float tf = min(min(t2.x, t2.y), t2.z);
+//     if( tn>tf ) return NO_HIT;
+
+//     // boolean with plane
+//     float k1 = s.y*ro.x - s.x*ro.y;
+//     float k2 = s.x*rd.y - s.y*rd.x;
+//     float tp = k1/k2;
+
+//     if( k1>tn*k2 )
+//         return Hit(tn,-step(tn,t1)*z, false); // box
+//     if( tp>tn && tp<tf )
+//         return vec4(tp,normalize(vec3(-s.y,s.x,0.0))); // plane
+//     return vec4(-1.0);
+// }
+
+
 Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
 {
     switch (item.type) {
@@ -256,38 +290,38 @@ Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
     }
 }
 
-
-HitInfo traceObjects3(vec3 ro, vec3 rd, RenderItem items[3], int itemCount)
-{
-    float min_t  = 1000000;
-    int hitIndex = 0;
-    Hit result   = NO_HIT;
-    Material material;
-    bool isLight;
-
-    for (int i = 0; i < itemCount; ++i) {
-        Hit hit = traceIntersect(ro, rd, items[i]);
-        if (hit.t < EPSILON) {
-            continue;
-        }
-
-        if (hit.t < min_t) {
-            min_t    = hit.t;
-            result   = hit;
-            material = items[i].material;
-            isLight  = items[i].type == TYPE_POINT_LIGHT;
-            hitIndex = i;
-        }
+#define TRACE_N_OBJECTS(n)                                                                                                                           \
+    HitInfo traceObjects##n(vec3 ro, vec3 rd, RenderItem items[n])                                                                                   \
+    {                                                                                                                                                \
+        float min_t  = 1000000;                                                                                                                      \
+        int hitIndex = 0;                                                                                                                            \
+        Hit result   = NO_HIT;                                                                                                                       \
+        Material material;                                                                                                                           \
+        bool isLight;                                                                                                                                \
+        for (int i = 0; i < n; ++i) {                                                                                                                \
+            Hit hit = traceIntersect(ro, rd, items[i]);                                                                                              \
+            if (hit.t < EPSILON) {                                                                                                                   \
+                continue;                                                                                                                            \
+            }                                                                                                                                        \
+            if (hit.t < min_t) {                                                                                                                     \
+                min_t    = hit.t;                                                                                                                    \
+                result   = hit;                                                                                                                      \
+                material = items[i].material;                                                                                                        \
+                isLight  = items[i].type == TYPE_POINT_LIGHT;                                                                                        \
+                hitIndex = i;                                                                                                                        \
+            }                                                                                                                                        \
+        }                                                                                                                                            \
+        return HitInfo(result, -rd, material, isLight);                                                                                              \
     }
 
-    return HitInfo(result, -rd, material, isLight);
-}
+TRACE_N_OBJECTS(3)
+TRACE_N_OBJECTS(4)
 
 
 HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    RenderItem base = createCylinder(vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1, materialRed);
-    RenderItem body = createCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9, materialRed);
+    RenderItem base = createCylinder(vec3(x, 0.0001, z), vec3(0, 1, 0), 0.3, 0.1, materialRed);
+    RenderItem body = createCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.7, materialRed);
     RenderItem head = createSphere(vec3(x, 0.9, z), 0.2, materialRed);
 
     RenderItem items[3] = {
@@ -296,7 +330,19 @@ HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
         head,
     };
 
-    return traceObjects3(ro, rd, items, 3);
+    return traceObjects3(ro, rd, items);
+}
+
+HitInfo intersectRook(vec3 ro, vec3 rd, float x, float z, int color)
+{
+    RenderItem base  = createCylinder(vec3(x, 0, z), vec3(0, 1, 0), 0.4, 0.1, materialGreen);
+    RenderItem base2 = createCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.32, 0.17, materialGreen);
+    RenderItem body  = createCylinder(vec3(x, 0.17, z), vec3(0, 1, 0), 0.2, 0.6, materialGreen);
+    RenderItem head  = createCylinder(vec3(x, 0.6, z), vec3(0, 1, 0), 0.25, 0.171, materialGreen);
+
+    RenderItem items[4] = { base, base2, body, head };
+
+    return traceObjects4(ro, rd, items);
 }
 
 HitInfo traceIntersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float z)
@@ -305,6 +351,10 @@ HitInfo traceIntersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float
         case FIGURE_PAWN: {
             return intersectPawn(ro, rd, x, z, color);
         }
+        case FIGURE_ROOK: {
+            return intersectRook(ro, rd, x, z, color);
+        }
+
         default:
             return HitInfo(NO_HIT, -rd, materialRed, false);
     }
@@ -317,10 +367,10 @@ HitInfo traceRay(vec3 ro, vec3 rd)
     float x = 0;
     float z = 2;
 
-    const int itemCount         = 3;
+    const int itemCount         = 2;
     RenderItem items[itemCount] = {
         light,
-        light2,
+        // light2,
         floor_, // floor must be the last one
     };
 

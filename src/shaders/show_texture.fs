@@ -71,7 +71,7 @@ void main()
     // FragColor = texture(textureSpecDiff, texCoord);
 
     // FragColor = texture(textureAmbient, texCoord);
-    vec4 filtered = texture(textureShadows, texCoord);
+    // vec4 filtered = texture(textureShadows, texCoord);
     // vec4 filtered = bilateralFilter();
     // vec4 filtered = customFilter();
     // FragColor = vec4(filtered.x, filtered.x, filtered.x, 1.0);
