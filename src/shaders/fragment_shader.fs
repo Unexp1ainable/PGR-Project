@@ -162,40 +162,32 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
 // Stolen from https://www.shadertoy.com/view/4lcSRn
 Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
 {
-    vec3 cb  = cylinder.position;
-    vec3 ba  = cylinder.direction * cylinder.size; // oriented cylinder height
-    vec3 pb  = cylinder.position + ba; // cylinder top
-    float ra = cylinder.radius; // cylinder radius
+    float ra = cylinder.radius;
+    vec3  a  = cylinder.position;
+    vec3  b  = cylinder.position + cylinder.size * cylinder.direction;
 
-    vec3 oc = ro - cb; // vector from cylinder base to ray origin
-
-    float baba = dot(ba, ba); // square of cylinder height vector magnitude
-    float bard = dot(ba, rd); // dot product between cylinder height vector and ray direction
-    float baoc = dot(ba, oc); // dot product between cylinder height vector and vector from cylinder base to ray origin
-
-    float k2 = baba - bard * bard;
-    float k1 = baba * dot(oc, rd) - baoc * bard;
-    float k0 = baba * dot(oc, oc) - baoc * baoc - ra * ra * baba;
-
-
-    float h = k1 * k1 - k2 * k0;
-    if (h < EPSILON)
-        return NO_HIT;
-    h        = sqrt(h);
-    float t  = (-k1 - h) / k2;
-    float t2 = (-k1 + h) / k2;
-
+    vec3  ba = b  - a;
+    vec3  oc = ro - a;
+    float baba = dot(ba,ba);
+    float bard = dot(ba,rd);
+    float baoc = dot(ba,oc);
+    float k2 = baba            - bard*bard;
+    float k1 = baba*dot(oc,rd) - baoc*bard;
+    float k0 = baba*dot(oc,oc) - baoc*baoc - ra*ra*baba;
+    float h = k1*k1 - k2*k0;
+    if( h<0.0 ) return NO_HIT;//no intersection
+    h = sqrt(h);
+    float t = (-k1-h)/k2;
     // body
-    float y = baoc + t * bard;
-
-    if (y > EPSILON && y < baba && t > EPSILON)
-        return Hit(t, ((oc + t * rd - ba * y / baba) / ra), ro + rd * t, false);
-
-    y = baoc + t2 * bard;
-
-    if (y > EPSILON && y < baba && t2 > EPSILON)
-        return Hit(t2, -((oc + t2 * rd - ba * y / baba) / ra), ro + rd * t2, true);
-    return NO_HIT;
+    float y = baoc + t*bard;
+    if( y>0.0 && y<baba ) return Hit( t, (oc+t*rd - ba*y/baba)/ra, ro + t*rd, false );
+    // caps
+    t = ( ((y<0.0) ? 0.0 : baba) - baoc)/bard;
+    if( abs(k1+k2*t)<h )
+    {
+        return Hit( t, ba*sign(y)/sqrt(baba), ro + t*rd, false );
+    }
+    return NO_HIT;//no intersection
 }
 
 
