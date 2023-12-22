@@ -6,8 +6,10 @@ layout(location = 2) out vec4 fAmbient;
 in vec4 gl_FragCoord;
 
 
-#define ORIGIN  vec3(0, 0, 0)
-#define EPSILON 0.00001
+#define ORIGIN       vec3(0, 0, 0)
+#define EPSILON      0.00001
+#define GOLDEN_RATIO 1.618033988749895
+#define PI           3.14159265359
 
 #define TYPE_SPHERE      0
 #define TYPE_CYLINDER    1
@@ -54,7 +56,7 @@ uniform int screenWidth       = 1024;
 uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
 uniform int reflectionBounces = 3;
-uniform int shadowRays        = 44;
+uniform int shadowRays        = 32;
 uniform vec3 lightPosition    = vec3(0, 4, 0);
 uniform float n               = 1.2;
 uniform uint time             = 42;
@@ -63,11 +65,11 @@ uniform float roughness    = 0.68;
 uniform float transparency = 0.5;
 uniform float density      = 0.8;
 
-Material materialRed   = Material(vec3(1, 0, 0), n, 0.1, 0.8, 0.5);
-Material materialGreen = Material(vec3(0, 1, 0), 1.2, roughness, transparency, density);
-Material materialBlue  = Material(vec3(0, 0, 1), 1., roughness, transparency, density);
-Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, transparency, density);
-Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, transparency, density);
+Material materialRed   = Material(vec3(1, 0, 0), n, 0.1, 1., 0.);
+Material materialGreen = Material(vec3(0, 1, 0), 1.4, roughness, transparency, density);
+Material materialBlue  = Material(vec3(0, 0, 1), 2.5, roughness, transparency, density);
+Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, 0., 0.7);
+Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, 0., 1.);
 
 
 RenderItem createSphere(vec3 position, float radius, Material material)
@@ -356,6 +358,10 @@ vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light)
 vec3 shade(HitInfo hitInfo, RenderItem light)
 {
     // vec3 color = shadeBlinnPhong(hitInfo, light);
+    if (hitInfo.isLight) {
+        return hitInfo.material.color;
+    }
+
     vec3 color = shadeCookTorrance(hitInfo, light);
     return color;
 }
@@ -379,6 +385,25 @@ vec2 randomSampleUnitCircle(vec2 st)
 }
 
 
+float radius(int i, int n, float b)
+{
+    if (i >= n - b) {
+        return 1;
+    } else {
+        return sqrt(float(i) / float(n - (b + 1) / 2));
+    }
+}
+
+
+vec2 sunflower(int n, int alpha, int i)
+{
+    float b     = round(alpha * sqrt(n));
+    float r     = radius(i, n, b);
+    float theta = 2 * PI * (i+1) / pow(GOLDEN_RATIO, 2);
+    return vec2(r, theta);
+}
+
+
 float calculateShadow(vec3 pos, RenderItem light)
 {
     vec3 lightDir      = normalize(light.position - pos);
@@ -390,6 +415,7 @@ float calculateShadow(vec3 pos, RenderItem light)
 
     for (int i = 0; i < shadowRays; i++) {
         vec2 rsample = randomSampleUnitCircle(seed);
+        // vec2 rsample = sunflower(shadowRays, 1, i);
         float r      = rsample.x * light.radius;
         float theta  = rsample.y;
         float x      = r * cos(theta);
@@ -436,9 +462,14 @@ void whatColorIsThere(vec3 ro, vec3 rd)
     if (hit.t > EPSILON) {
         vec3 pos = hit.pos;
 
-        float primaryShadow = calculateShadow(pos, light);
-        vec3 color   = shade(hitInfo, light);
-        vec3 primaryColor = hitInfo.material.color;
+        float primaryShadow = calculateShadow(pos + hit.normal * 0.001, light);
+        // primaryShadow = 1 - primaryShadow ;
+        // primaryShadow *= 1 - hitInfo.material.transparency;
+        // primaryShadow = 1 - primaryShadow ;
+        primaryShadow = hitInfo.material.transparency + primaryShadow - hitInfo.material.transparency*primaryShadow;
+
+        vec3 color          = shade(hitInfo, light);
+        vec3 primaryColor   = hitInfo.material.color;
 
         HitInfo currentHit = hitInfo;
         vec3 currentRo     = pos;
@@ -447,7 +478,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         float refl = 1;
         float d    = currentHit.material.density;
         float dinv = 1. - d;
-        float t = currentHit.material.transparency;
+        float t    = currentHit.material.transparency;
         float tinv = 1. - t;
         vec3 accum = color * d * tinv;
 
@@ -460,6 +491,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             n2 = 1.;
         }
 
+        // determine how much light is reflected and how much is refracted
         float incident_angle  = acos(dot(-rd, hitInfo.hit.normal));
         float refracted_angle = asin(n1 / n2 * sin(incident_angle));
 
@@ -473,9 +505,8 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             transmission_coef = 0;
         }
 
-        // reflection_coef += transmission_coef * (1 - hitInfo.material.transparency);
-        // transmission_coef *= hitInfo.material.transparency;
-
+        transmission_coef *= t;
+        reflection_coef = 1 - transmission_coef;
 
         vec3 refl_accum   = vec3(0);
         float refl_shadow = 1;
@@ -541,13 +572,15 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         }
 
         accum += refr_accum * transmission_coef * refr_shadow + refl_accum * reflection_coef * refl_shadow * dinv;
+        // accum *= primaryShadow;
 
         fSpecDiff = vec4(accum, 1);
         // fSpecDiff = vec4(refl_shadow, 0, 0, 1);
-        fAmbient  = vec4(primaryColor * vec3(0.1), 1);
+        // fSpecDiff = vec4(refl_accum,1.);
+        fAmbient = vec4(primaryColor * vec3(0.1), 1);
 
-        fSpecDiff = max(fSpecDiff, fAmbient);
-        fShadow   = primaryShadow;
+        // fSpecDiff = max(fSpecDiff, fAmbient);
+        fShadow = primaryShadow;
 
     } else {
         fSpecDiff = vec4(0, 0, 0, 1);

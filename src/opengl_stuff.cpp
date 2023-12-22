@@ -175,8 +175,6 @@ OpenGLContext::OpenGLContext()
     m_showTexturePrg = createProgram({ vShader, tfShader });
     m_vao       = createVAO();
 
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ambientTexture, 0);
-
 }
 
 void OpenGLContext::useRenderProgram() const
@@ -201,7 +199,19 @@ void OpenGLContext::showTexture()
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_specDiffTexture);
     // Bind the shader program and set the texture uniform
-    glUniform1i(glGetUniformLocation(m_showTexturePrg, "myTexture"), 0); // Assuming texture unit 0
+    glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureSpecDiff"), 0);
+
+    // Bind the texture to texture unit 1
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, m_ambientTexture);
+    // Bind the shader program and set the texture uniform
+    glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureAmbient"), 1);
+
+    // Bind the texture to texture unit 2
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
+    // Bind the shader program and set the texture uniform
+    glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureShadows"), 2);
 
 
     glBindVertexArray(m_vao);
