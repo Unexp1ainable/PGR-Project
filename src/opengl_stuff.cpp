@@ -195,27 +195,20 @@ void OpenGLContext::showTexture()
     glUseProgram(m_showTexturePrg);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    // glBindFramebuffer(GL_READ_FRAMEBUFFER, m_fbo);
     glReadBuffer(GL_COLOR_ATTACHMENT2);
 
     // Bind the texture to texture unit 0
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_ambientTexture);
+    glBindTexture(GL_TEXTURE_2D, m_specDiffTexture);
     // Bind the shader program and set the texture uniform
     glUniform1i(glGetUniformLocation(m_showTexturePrg, "myTexture"), 0); // Assuming texture unit 0
 
 
     glBindVertexArray(m_vao);
 
-
-    // Render a fullscreen quad
     glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
-
-    // Unbind the texture and shader program
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindVertexArray(0);
-
-    glUseProgram(0);
 }
 
 GLuint OpenGLContext::createShader(GLenum type, std::string const& src)

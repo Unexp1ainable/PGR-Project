@@ -27,9 +27,9 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store) {
         m_gpu_uniforms.roughness = store.roughness;
         glProgramUniform1f(m_program, glGetUniformLocation(m_program, "roughness"), store.roughness);
     }
-    if (store.fresnel != m_gpu_uniforms.fresnel) {
-        m_gpu_uniforms.fresnel = store.fresnel;
-        glProgramUniform1f(m_program, glGetUniformLocation(m_program, "fresnel"), store.fresnel);
+    if (store.transparency != m_gpu_uniforms.transparency) {
+        m_gpu_uniforms.transparency = store.transparency;
+        glProgramUniform1f(m_program, glGetUniformLocation(m_program, "transparency"), store.transparency);
     }
     if (store.density != m_gpu_uniforms.density) {
         m_gpu_uniforms.density = store.density;

@@ -29,7 +29,7 @@ void drawGui(UniformStore& store, float fps)
     ImGui::SeparatorText("Scene");
     ImGui::SliderFloat3("lightPos", glm::value_ptr(store.lightPosition), -100., 100.);
     ImGui::SliderFloat("roughness", &store.roughness, 0., 1.);
-    ImGui::SliderFloat("fresnel", &store.fresnel, 0., 1.);
+    ImGui::SliderFloat("transparency", &store.transparency, 0., 1.);
     ImGui::SliderFloat("density", &store.density, 0., 1.);
     ImGui::SliderFloat("n", &store.n, 1., 3.);
 
