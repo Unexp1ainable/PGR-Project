@@ -58,6 +58,8 @@ void blend()
     vec4 shadow = bilateralFilter();
     shadow = vec4(shadow.xxx, 2.);
     shadow = 1 - shadow;
+    // vec4 shadow = vec4(1.);
+
     vec4 ambient = texture(textureAmbient, texCoord);
     vec4 specularDiffuse = texture(textureSpecDiff, texCoord);
     FragColor = ambient + specularDiffuse * shadow;
