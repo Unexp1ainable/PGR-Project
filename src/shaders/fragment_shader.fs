@@ -37,16 +37,6 @@ struct Material {
     float density; // Cook-Torrance color density i.e. fraction of diffuse reflection
 };
 
-struct RenderItem {
-    int type;
-    vec3 position;
-    vec3 normal;
-    vec3 direction;
-    float size;
-    float radius;
-    Material material;
-};
-
 struct Hit {
     float t;
     vec3 normal; // normal of the surface at hit point
@@ -82,93 +72,27 @@ Material materialBlue  = Material(vec3(0, 0, 1), 2.5, roughness, transparency, d
 Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, 0., 1.);
 Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, 0., 1.);
 
+struct LightItem {
+    vec3 position;
+    float radius;
+    Material material;
+};
 
-RenderItem createSphere(vec3 position, float radius, Material material)
-{
-    RenderItem item;
-    item.type     = TYPE_SPHERE;
-    item.position = position;
-    item.radius   = radius;
-    item.material = material;
-    return item;
-}
-
-RenderItem createCylinder(vec3 position, vec3 direction, float radius, float height, Material material)
-{
-    RenderItem item;
-    item.type      = TYPE_CYLINDER;
-    item.position  = position;
-    item.direction = direction;
-    item.radius    = radius;
-    item.size      = height;
-    item.material  = material;
-    return item;
-}
-
-RenderItem createCappedCylinder(vec3 position, vec3 direction, float radius, float height, Material material)
-{
-    RenderItem item;
-    item.type      = TYPE_CAPPED_CYLINDER;
-    item.position  = position;
-    item.direction = direction;
-    item.radius    = radius;
-    item.size      = height;
-    item.material  = material;
-    return item;
-}
-
-RenderItem createPlane(vec3 position, vec3 normal, vec3 direction, float size, Material material)
-{
-    RenderItem item;
-    item.type      = TYPE_PLANE;
-    item.position  = position;
-    item.normal    = normal;
-    item.direction = direction;
-    item.size      = size;
-    item.material  = material;
-    return item;
-}
-
-RenderItem createDisc(vec3 position, vec3 normal, vec3 direction, float size, Material material)
-{
-    RenderItem item;
-    item.type      = TYPE_DISC;
-    item.position  = position;
-    item.normal    = normal;
-    item.direction = direction;
-    item.size      = size;
-    item.material  = material;
-    return item;
-}
-
-RenderItem createPointLight(vec3 position, Material material)
-{
-    RenderItem item;
-    item.type     = TYPE_POINT_LIGHT;
-    item.position = position;
-    item.material = material;
-    return item;
-}
-
-RenderItem sphere   = createSphere(vec3(1, 1, 2), 0.2, materialRed);
-RenderItem cylinder = createCylinder(vec3(0, 0, 2), vec3(0, 1, 0), 0.2, 0.5, materialGreen);
-RenderItem plane    = createPlane(vec3(-2, 0.5, 2), vec3(0, 1, 0), vec3(1, 0, 0), 0.5, materialBlue);
-RenderItem light    = RenderItem(TYPE_POINT_LIGHT, lightPosition, vec3(0, 0, 0), vec3(0, 0, 0), 0, 2, materialWhite);
-RenderItem light2   = RenderItem(TYPE_POINT_LIGHT, vec3(10, 10, 10), vec3(0, 0, 0), vec3(0, 0, 0), 0, 2, materialWhite);
+LightItem light = LightItem(vec3(0, 4, 0), 0.5, Material(vec3(1, 1, 1), 1., roughness, 0., 1.));
 
 #define LIGHT_COUNT 1
-RenderItem[LIGHT_COUNT] lights = {
+LightItem[LIGHT_COUNT] lights = {
     light,
     // light2,
 };
 
-Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
+Hit intersectSphere(vec3 ro, vec3 rd, vec3 center, float radius)
 {
-    vec3 sphereToRay = ro - sphere.position;
+    vec3 sphereToRay = ro - center;
 
     float a = dot(rd, rd);
     float b = 2 * dot(rd, sphereToRay);
-    float c = dot(sphere.position, sphere.position) + dot(ro, ro) - 2.0 * dot(sphere.position, ro) - sphere.radius * sphere.radius;
+    float c = dot(center, center) + dot(ro, ro) - 2.0 * dot(center, ro) - radius * radius;
     float d = b * b - 4 * a * c;
 
     if (d <= EPSILON) {
@@ -183,18 +107,18 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
     t        = t > EPSILON * 10 ? t : -1;
     vec3 pos = ro + rd * t;
     if (sign(t1) != sign(t2)) {
-        return Hit(t, -normalize(pos - sphere.position), true);
+        return Hit(t, -normalize(pos - center), true);
     } else {
-        return Hit(t, normalize(pos - sphere.position), false);
+        return Hit(t, normalize(pos - center), false);
     }
 }
 
 // Stolen from https://www.shadertoy.com/view/4lcSRn
-Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
+Hit intersectCylinder(vec3 ro, vec3 rd, vec3 center, vec3 direction, float radius, float height)
 {
-    float ra = cylinder.radius;
-    vec3 a   = cylinder.position;
-    vec3 b   = cylinder.position + cylinder.size * cylinder.direction;
+    float ra = radius;
+    vec3 a   = center;
+    vec3 b   = center + height * direction;
 
     vec3 ba    = b - a;
     vec3 oc    = ro - a;
@@ -228,35 +152,35 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
 
 
 // plane degined by p (p.xyz must be normalized)
-Hit intersectDisc(vec3 ro, vec3 rd, RenderItem plane)
+Hit intersectDisc(vec3 ro, vec3 rd, vec3 normal, vec3 center, float radius)
 {
-    vec3 o  = ro - plane.position;
-    float t = -dot(plane.normal, o) / dot(rd, plane.normal);
+    vec3 o  = ro - center;
+    float t = -dot(normal, o) / dot(rd, normal);
     vec3 q  = o + rd * t;
 
     float dist = length(q);
 
-    t = t > EPSILON && dist < plane.size ? t : -1;
-    return Hit(t, plane.normal, false);
+    t = t > EPSILON && dist < radius ? t : -1;
+    return Hit(t, normal, false);
 }
 
 
 vec2 cap(vec3 rd, vec3 ro, vec3 pos, vec3 normal, float radius)
 {
-    vec3 o  = ro - pos;
-    float t = -dot(normal, o) / dot(rd, normal);
-    vec3 q  = o + rd * t;
+    vec3 o     = ro - pos;
+    float t    = -dot(normal, o) / dot(rd, normal);
+    vec3 q     = o + rd * t;
     float dist = length(q);
-    bool pass =  t > EPSILON && dist < radius;
+    bool pass  = t > EPSILON && dist < radius;
     return vec2(t, float(pass));
 }
 
 
-Hit intersectCappedCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
+Hit intersectCappedCylinder(vec3 ro, vec3 rd, vec3 center, vec3 direction, float radius, float height)
 {
-    float ra = cylinder.radius;
-    vec3 a   = cylinder.position;
-    vec3 b   = cylinder.position + cylinder.size * cylinder.direction;
+    float ra = radius;
+    vec3 a   = center;
+    vec3 b   = center + height * direction;
 
     vec3 ba    = b - a;
     vec3 oc    = ro - a;
@@ -279,19 +203,19 @@ Hit intersectCappedCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     bool good1 = y1 > 0.0 && y1 < baba && t1 > EPSILON;
     bool good2 = y2 > 0.0 && y2 < baba;
 
-    vec2 tc1 = cap(rd, ro, a, -cylinder.direction, ra);
-    vec2 tc2 = cap(rd, ro, b, cylinder.direction, ra);
+    vec2 tc1 = cap(rd, ro, a, -direction, ra);
+    vec2 tc2 = cap(rd, ro, b, direction, ra);
 
-    float[2] t_caps = { tc1.x, tc2.x };
+    float[2] t_caps   = { tc1.x, tc2.x };
     bool[2] pass_caps = { tc1.y > EPSILON, tc2.y > EPSILON };
-    vec3[2] n_caps = { -cylinder.direction, cylinder.direction };
+    vec3[2] n_caps    = { -direction, direction };
 
-    int closerCap = tc1.x <= tc2.x ? 0 : 1;
+    int closerCap  = tc1.x <= tc2.x ? 0 : 1;
     int furtherCap = closerCap == 1 ? 0 : 1;
 
 
     if (good1) {
-        return Hit(t1,  (oc + t1 * rd - ba * y1 / baba) / ra, false);
+        return Hit(t1, (oc + t1 * rd - ba * y1 / baba) / ra, false);
     }
     if (pass_caps[closerCap]) {
         return Hit(t_caps[closerCap], n_caps[closerCap], false);
@@ -307,112 +231,184 @@ Hit intersectCappedCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
 }
 
 
-// plane degined by p (p.xyz must be normalized)
-Hit intersectPlane(vec3 ro, vec3 rd, RenderItem plane)
+Hit intersectUpperCappedCylinder(vec3 ro, vec3 rd, vec3 center, vec3 direction, float radius, float height)
 {
-    vec3 o  = ro - plane.position;
-    float t = -dot(plane.normal, o) / dot(rd, plane.normal);
+    float ra = radius;
+    vec3 a   = center;
+    vec3 b   = center + height * direction;
+
+    vec3 ba    = b - a;
+    vec3 oc    = ro - a;
+    float baba = dot(ba, ba);
+    float bard = dot(ba, rd);
+    float baoc = dot(ba, oc);
+    float k2   = baba - bard * bard;
+    float k1   = baba * dot(oc, rd) - baoc * bard;
+    float k0   = baba * dot(oc, oc) - baoc * baoc - ra * ra * baba;
+    float h    = k1 * k1 - k2 * k0;
+    if (h < 0.0)
+        return NO_HIT; // no intersection
+    h = sqrt(h);
+
+    float t1 = (-k1 - h) / k2;
+    float y1 = baoc + t1 * bard;
+    float t2 = (-k1 + h) / k2;
+    float y2 = baoc + t2 * bard;
+
+    bool good1 = y1 > 0.0 && y1 < baba && t1 > EPSILON;
+    bool good2 = y2 > 0.0 && y2 < baba;
+
+    vec2 tc1 = cap(rd, ro, a, -direction, ra);
+    vec2 tc2 = cap(rd, ro, b, direction, ra);
+
+    float[2] t_caps   = { tc1.x, tc2.x };
+    bool[2] pass_caps = { tc1.y > EPSILON, tc2.y > EPSILON };
+    vec3[2] n_caps    = { -direction, direction };
+
+    int closerCap  = tc1.x <= tc2.x ? 0 : 1;
+    int furtherCap = closerCap == 1 ? 0 : 1;
+
+
+    if (good1) {
+        return Hit(t1, (oc + t1 * rd - ba * y1 / baba) / ra, false);
+    }
+    if (pass_caps[closerCap]) {
+        return Hit(t_caps[closerCap], n_caps[closerCap], false);
+    }
+    if (good2) {
+        return Hit(t2, -(oc + t2 * rd - ba * y2 / baba) / ra, true);
+    }
+
+    return NO_HIT; // no intersection
+}
+
+
+// plane degined by p (p.xyz must be normalized)
+Hit intersectPlane(vec3 ro, vec3 rd, vec3 center, vec3 normal, vec3 direction, float size)
+{
+    vec3 o  = ro - center;
+    float t = -dot(normal, o) / dot(rd, normal);
     vec3 q  = o + rd * t;
 
-    vec3 d1    = plane.direction;
-    vec3 d2    = cross(plane.normal, d1);
+    vec3 d1    = direction;
+    vec3 d2    = cross(normal, d1);
     float dist = max(abs(dot(q, d1)), abs(dot(q, d2)));
 
-    t = t > EPSILON && dist < plane.size ? t : -1;
-    return Hit(t, plane.normal, false);
+    t = t > EPSILON && dist < size ? t : -1;
+    return Hit(t, normal, false);
 }
 
 
+// #define TRACE_N_OBJECTS(n)                                                                                                                           \
+//     HitInfo traceObjects##n(vec3 ro, vec3 rd, RenderItem items[n])                                                                                   \
+//     {                                                                                                                                                \
+//         float min_t  = 1000000;                                                                                                                      \
+//         int hitIndex = 0;                                                                                                                            \
+//         Hit result   = NO_HIT;                                                                                                                       \
+//         Material material;                                                                                                                           \
+//         bool isLight;                                                                                                                                \
+//         for (int i = 0; i < n; ++i) {                                                                                                                \
+//             Hit hit = traceIntersect(ro, rd, items[i]);                                                                                              \
+//             if (hit.t < EPSILON) {                                                                                                                   \
+//                 continue;                                                                                                                            \
+//             }                                                                                                                                        \
+//             if (hit.t < min_t) {                                                                                                                     \
+//                 min_t    = hit.t;                                                                                                                    \
+//                 result   = hit;                                                                                                                      \
+//                 material = items[i].material;                                                                                                        \
+//                 isLight  = items[i].type == TYPE_POINT_LIGHT;                                                                                        \
+//                 hitIndex = i;                                                                                                                        \
+//             }                                                                                                                                        \
+//         }                                                                                                                                            \
+//         return HitInfo(result, -rd, material, isLight);                                                                                              \
+//     }
 
+// TRACE_N_OBJECTS(3)
+// TRACE_N_OBJECTS(4)
 
-Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
-{
-    switch (item.type) {
-        case TYPE_SPHERE:
-            return intersectSphere(ro, rd, item);
-        case TYPE_CYLINDER:
-            return intersectCylinder(ro, rd, item);
-        case TYPE_CAPPED_CYLINDER:
-            return intersectCappedCylinder(ro, rd, item);
-        case TYPE_PLANE:
-            return intersectPlane(ro, rd, item);
-        case TYPE_DISC:
-            return intersectDisc(ro, rd, item);
-        case TYPE_POINT_LIGHT:
-            return intersectSphere(ro, rd, item);
-        default:
-            return NO_HIT;
-    }
-}
-
-#define TRACE_N_OBJECTS(n)                                                                                                                           \
-    HitInfo traceObjects##n(vec3 ro, vec3 rd, RenderItem items[n])                                                                                   \
+#define FIND_CLOSEST_HIT_FN(array_len)                                                                                                               \
+    Hit findClosestHit(Hit hits[array_len])                                                                                                          \
     {                                                                                                                                                \
         float min_t  = 1000000;                                                                                                                      \
-        int hitIndex = 0;                                                                                                                            \
-        Hit result   = NO_HIT;                                                                                                                       \
-        Material material;                                                                                                                           \
-        bool isLight;                                                                                                                                \
-        for (int i = 0; i < n; ++i) {                                                                                                                \
-            Hit hit = traceIntersect(ro, rd, items[i]);                                                                                              \
-            if (hit.t < EPSILON) {                                                                                                                   \
+        int hitIndex = -1;                                                                                                                           \
+        for (int i = 0; i < array_len; ++i) {                                                                                                        \
+            if (hits[i].t < EPSILON) {                                                                                                               \
                 continue;                                                                                                                            \
             }                                                                                                                                        \
-            if (hit.t < min_t) {                                                                                                                     \
-                min_t    = hit.t;                                                                                                                    \
-                result   = hit;                                                                                                                      \
-                material = items[i].material;                                                                                                        \
-                isLight  = items[i].type == TYPE_POINT_LIGHT;                                                                                        \
+            if (hits[i].t < min_t) {                                                                                                                 \
+                min_t    = hits[i].t;                                                                                                                \
                 hitIndex = i;                                                                                                                        \
             }                                                                                                                                        \
         }                                                                                                                                            \
-        return HitInfo(result, -rd, material, isLight);                                                                                              \
+        if (hitIndex == -1) {                                                                                                                        \
+            return NO_HIT;                                                                                                                           \
+        } else {                                                                                                                                     \
+            return hits[hitIndex];                                                                                                                   \
+        }                                                                                                                                            \
     }
 
-TRACE_N_OBJECTS(3)
-TRACE_N_OBJECTS(4)
-
+FIND_CLOSEST_HIT_FN(2)
+FIND_CLOSEST_HIT_FN(3)
+FIND_CLOSEST_HIT_FN(4)
+FIND_CLOSEST_HIT_FN(5)
 
 HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    RenderItem base = createCylinder(vec3(x, 0.0001, z), vec3(0, 1, 0), 0.3, 0.1, materialRed);
-    RenderItem body = createCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9, materialRed);
-    RenderItem head = createSphere(vec3(x, 0.9, z), 0.2, materialRed);
+    Hit hits[3];
 
-    RenderItem items[3] = {
-        base,
-        body,
-        head,
-    };
+    hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.0001, z), vec3(0, 1, 0), 0.3, 0.1);
+    hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9);
+    hits[2] = intersectSphere(ro, rd, vec3(x, 0.9, z), 0.2);
 
-    return traceObjects3(ro, rd, items);
+    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
 }
 
 HitInfo intersectRook(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    RenderItem base  = createCylinder(vec3(x, 0, z), vec3(0, 1, 0), 0.4, 0.1, materialGreen);
-    RenderItem base2 = createCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.32, 0.17, materialGreen);
-    RenderItem body  = createCylinder(vec3(x, 0.17, z), vec3(0, 1, 0), 0.2, 0.6, materialGreen);
-    RenderItem head  = createCylinder(vec3(x, 0.6, z), vec3(0, 1, 0), 0.25, 0.171, materialGreen);
+    Hit hits[4];
+    hits[0] = intersectCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.4, 0.1);
+    hits[1] = intersectCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.32, 0.17);
+    hits[2] = intersectCylinder(ro, rd, vec3(x, 0.17, z), vec3(0, 1, 0), 0.2, 0.6);
+    hits[3] = intersectCylinder(ro, rd, vec3(x, 0.6, z), vec3(0, 1, 0), 0.25, 0.171);
 
-    RenderItem items[4] = { base, base2, body, head };
-
-    return traceObjects4(ro, rd, items);
+    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
 }
 
 HitInfo intersectKnight(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    RenderItem base  = createCylinder(vec3(x, 0.0, z), vec3(0, 1, 0), 0.3, 0.1, materialRed);
-    RenderItem head  = createCappedCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.2, 0.06, materialRed);
-    RenderItem base2 = createCappedCylinder(vec3(x, 0.1, z), normalize(vec3(1, 2, 0)), 0.1, 0.6, materialRed);
-    RenderItem body  = createCappedCylinder(vec3(x - 0.2, 0.5, z), normalize(vec3(1, 0.5, 0)), 0.1, 0.4, materialRed);
+    Hit hits[5];
+    hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
+    hits[1] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.2, 0.06);
+    hits[2] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), normalize(vec3(1, 2, 0)), 0.1, 0.6);
+    hits[3] = intersectCappedCylinder(ro, rd, vec3(x - 0.2, 0.5, z), normalize(vec3(1, 0.5, 0)), 0.1, 0.3);
+    hits[4] = intersectSphere(ro, rd, vec3(x + 0.2, 0.7, z), 0.2);
 
-    RenderItem items[4] = { base, base2, body, head };
-
-    return traceObjects4(ro, rd, items);
+    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
 }
 
-HitInfo traceIntersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float z)
+HitInfo intersectBishop(vec3 ro, vec3 rd, float x, float z, int color)
+{
+    Hit hits[4];
+    hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
+    hits[1] = intersectCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.14, 0.5);
+    hits[2] = intersectSphere(ro, rd, vec3(x, 0.7, z), 0.2);
+    hits[3] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.85, z), vec3(0, 1, 0), 0.05, 0.1);
+
+    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+}
+
+HitInfo intersectKing(vec3 ro, vec3 rd, float x, float z, int color)
+{
+    Hit hits[4];
+    hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
+    hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.2, 0.6);
+    hits[2] = intersectSphere(ro, rd, vec3(x, 0.7, z), 0.2);
+    hits[3] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.85, z), vec3(0, 1, 0), 0.05, 0.1);
+
+    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+}
+
+HitInfo intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float z)
 {
     switch (figure_type) {
         case FIGURE_PAWN: {
@@ -424,6 +420,12 @@ HitInfo traceIntersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float
         case FIGURE_KNIGHT: {
             return intersectKnight(ro, rd, x, z, color);
         }
+        case FIGURE_BISHOP: {
+            return intersectBishop(ro, rd, x, z, color);
+        }
+        case FIGURE_KING: {
+            return intersectKing(ro, rd, x, z, color);
+        }
 
         default:
             return HitInfo(NO_HIT, -rd, materialRed, false);
@@ -432,21 +434,23 @@ HitInfo traceIntersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float
 
 HitInfo traceRay(vec3 ro, vec3 rd)
 {
-    RenderItem floor_ = createPlane((vec3(-0.5, 0, -0.5)), vec3(0, 1, 0), vec3(1, 0, 0), 4, materialGray);
-
     float x = 0;
     float z = 2;
 
-    RenderItem cylinder = createCappedCylinder(vec3(x, 0.2, z), vec3(0, 1, 0), 0.3, 1, materialRed);
 
-    const int itemCount         = 2;
-    RenderItem items[itemCount] = {
-        light,
-        // cylinder,
-        // light2,
-        floor_, // floor must be the last one
-    };
+    const int itemCount = 2;
 
+    Hit hits[itemCount];
+    hits[0] = intersectSphere(ro, rd, light.position, light.radius);
+    hits[1] = intersectPlane(ro, rd, vec3(-0.5, 0, -0.5), vec3(0, 1, 0), vec3(1, 0, 0), 4);
+
+    Material materials[itemCount];
+    materials[0] = materialWhite;
+    materials[1] = materialGray;
+
+    bool isLights[itemCount];
+    isLights[0] = true;
+    isLights[1] = false;
 
     Hit result = NO_HIT;
     Material material;
@@ -456,30 +460,29 @@ HitInfo traceRay(vec3 ro, vec3 rd)
     int hitIndex = -1;
 
     for (int i = 0; i < itemCount; ++i) {
-        Hit hit = traceIntersect(ro, rd, items[i]);
-        if (hit.t < EPSILON) {
+        if (hits[i].t < EPSILON) {
             continue;
         }
 
-        if (hit.t < min_t) {
-            min_t    = hit.t;
-            result   = hit;
-            material = items[i].material;
-            isLight  = items[i].type == TYPE_POINT_LIGHT;
+        if (hits[i].t < min_t) {
+            min_t    = hits[i].t;
+            result   = hits[i];
+            material = materials[i];
+            isLight  = isLights[i];
             hitIndex = i;
         }
     }
 
     if (hitIndex == itemCount - 1) {
         vec4 newColor = vec4(0, 0, 0, 1);
-        vec3 pos = ro + rd * result.t;
+        vec3 pos      = ro + rd * result.t;
         if (int(floor(pos.x + 0.5)) % 2 == int(floor(pos.z + 0.5)) % 2) {
             newColor = vec4(1, 1, 1, 1);
         }
         material.color = newColor.xyz;
     }
 
-    HitInfo figureHit = traceIntersectFigure(ro, rd, FIGURE_KNIGHT, COLOR_WHITE, x, z);
+    HitInfo figureHit = intersectFigure(ro, rd, FIGURE_KING, COLOR_WHITE, x, z);
 
     if (figureHit.hit.t > EPSILON && figureHit.hit.t < result.t || result.t < EPSILON) {
         result   = figureHit.hit;
@@ -491,7 +494,7 @@ HitInfo traceRay(vec3 ro, vec3 rd)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, RenderItem light)
+vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, LightItem light)
 {
     float diffuse  = 0.6;
     float specular = 0.4;
@@ -508,7 +511,7 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, RenderItem light)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, RenderItem light)
+vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, LightItem light)
 {
     float roughness = hitInfo.material.roughness;
     float K         = hitInfo.material.density;
@@ -553,7 +556,7 @@ vec3 shade(HitInfo hitInfo, vec3 pos)
     vec3 res_color = vec3(0.);
 
     for (int light_i = 0; light_i < LIGHT_COUNT; light_i++) {
-        RenderItem light = lights[light_i];
+        LightItem light = lights[light_i];
         // vec3 color = shadeBlinnPhong(hitInfo, light);
         if (hitInfo.isLight) {
             return hitInfo.material.color;
@@ -609,7 +612,7 @@ float calculateShadow(vec3 pos)
     float res_shadow = 0.;
 
     for (int light_i = 0; light_i < LIGHT_COUNT; light_i++) {
-        RenderItem light = lights[light_i];
+        LightItem light = lights[light_i];
 
         vec3 lightDir      = normalize(light.position - pos);
         vec3 perpLightDir1 = normalize(cross(lightDir, vec3(lightDir.x + 1, lightDir.y + 1, lightDir.z - 1)));
@@ -651,8 +654,8 @@ float calculateShadowHard(vec3 pos)
     float res_shadow = 0.;
 
     for (int light_i = 0; light_i < LIGHT_COUNT; light_i++) {
-        RenderItem light = lights[light_i];
-        vec3 lightDir    = normalize(light.position - pos);
+        LightItem light = lights[light_i];
+        vec3 lightDir   = normalize(light.position - pos);
 
         HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, lightDir);
         vec3 shadowHitPos = pos + shadowHit.hit.t * lightDir;
@@ -724,7 +727,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 refl_accum   = vec3(0);
         float refl_shadow = 1;
-        vec3 pos = primaryPos;
+        vec3 pos          = primaryPos;
         // handle reflections
         for (int k = 1; k < 4; ++k) {
             refl *= 1. - currentHit.material.density;
