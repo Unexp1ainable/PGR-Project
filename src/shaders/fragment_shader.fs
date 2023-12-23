@@ -61,13 +61,15 @@ struct HitInfo {
     vec3 ed; // eye direction
     Material material;
     bool isLight;
+    float n_from;
+    float n_to;
 };
 
 uniform int screenWidth       = 1024;
 uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
 uniform int reflectionBounces = 3;
-uniform int shadowRays        = 32;
+uniform int shadowRays        = 16;
 uniform vec3 lightPosition    = vec3(0, 4, 0);
 uniform float n               = 1.2;
 uniform uint time             = 42;
@@ -201,7 +203,7 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     float y = baoc + t * bard;
     if (y > 0.0 && y < baba && t > EPSILON)
         return Hit(t, (oc + t * rd - ba * y / baba) / ra, ro + t * rd, false);
-        
+
     // caps
     t = (((y < 0.0) ? 0.0 : baba) - baoc) / bard;
     if (abs(k1 + k2 * t) < h) {
@@ -290,28 +292,52 @@ Hit traceIntersect(vec3 ro, vec3 rd, RenderItem item)
     }
 }
 
-#define TRACE_N_OBJECTS(n)                                                                                                                           \
-    HitInfo traceObjects##n(vec3 ro, vec3 rd, RenderItem items[n])                                                                                   \
+#define TRACE_N_OBJECTS(num_objects)                                                                                                                 \
+    HitInfo traceObjects##num_objects(vec3 ro, vec3 rd, RenderItem items[num_objects])                                                               \
     {                                                                                                                                                \
         float min_t  = 1000000;                                                                                                                      \
+        float min_t2 = 1000000;                                                                                                                      \
         int hitIndex = 0;                                                                                                                            \
         Hit result   = NO_HIT;                                                                                                                       \
         Material material;                                                                                                                           \
         bool isLight;                                                                                                                                \
-        for (int i = 0; i < n; ++i) {                                                                                                                \
+        float n_1    = 1.;                                                                                                                           \
+        float n_2    = 1;                                                                                                                            \
+        bool inside1 = false;                                                                                                                        \
+        bool inside2 = false;                                                                                                                        \
+        for (int i = 0; i < num_objects; ++i) {                                                                                                      \
             Hit hit = traceIntersect(ro, rd, items[i]);                                                                                              \
             if (hit.t < EPSILON) {                                                                                                                   \
                 continue;                                                                                                                            \
             }                                                                                                                                        \
             if (hit.t < min_t) {                                                                                                                     \
+                min_t2   = min_t;                                                                                                                    \
+                n_2      = n_1;                                                                                                                      \
+                inside2  = inside1;                                                                                                                  \
                 min_t    = hit.t;                                                                                                                    \
                 result   = hit;                                                                                                                      \
                 material = items[i].material;                                                                                                        \
                 isLight  = items[i].type == TYPE_POINT_LIGHT;                                                                                        \
+                n_1      = items[i].material.n;                                                                                                      \
+                inside1  = hit.inside;                                                                                                               \
                 hitIndex = i;                                                                                                                        \
+            } else if (hit.t < min_t2) {                                                                                                             \
+                min_t2  = hit.t;                                                                                                                     \
+                n_2     = items[i].material.n;                                                                                                       \
+                inside2 = hit.inside;                                                                                                                \
             }                                                                                                                                        \
         }                                                                                                                                            \
-        return HitInfo(result, -rd, material, isLight);                                                                                              \
+        if (inside1 && !inside2) {                                                                                                                   \
+            n_2 = 1.;                                                                                                                                \
+        } else if (!inside1 && inside2) {                                                                                                            \
+            float tmp = n_1;                                                                                                                         \
+            n_1       = n_2;                                                                                                                         \
+            n_2       = tmp;                                                                                                                         \
+        } else if (!inside1 && !inside2) {                                                                                                           \
+            n_2 = n_1;                                                                                                                               \
+            n_1 = 1.;                                                                                                                                \
+        }                                                                                                                                            \
+        return HitInfo(result, -rd, material, isLight, n_1, n_2);                                                                                    \
     }
 
 TRACE_N_OBJECTS(3)
@@ -321,7 +347,7 @@ TRACE_N_OBJECTS(4)
 HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
 {
     RenderItem base = createCylinder(vec3(x, 0.0001, z), vec3(0, 1, 0), 0.3, 0.1, materialRed);
-    RenderItem body = createCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.7, materialRed);
+    RenderItem body = createCylinder(vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9, materialRed);
     RenderItem head = createSphere(vec3(x, 0.9, z), 0.2, materialRed);
 
     RenderItem items[3] = {
@@ -356,7 +382,7 @@ HitInfo traceIntersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float
         }
 
         default:
-            return HitInfo(NO_HIT, -rd, materialRed, false);
+            return HitInfo(NO_HIT, -rd, materialRed, false, 0, 0);
     }
 }
 
@@ -408,12 +434,10 @@ HitInfo traceRay(vec3 ro, vec3 rd)
     HitInfo figureHit = traceIntersectFigure(ro, rd, FIGURE_PAWN, COLOR_WHITE, x, z);
 
     if (figureHit.hit.t > EPSILON && figureHit.hit.t < result.t || result.t < EPSILON) {
-        result   = figureHit.hit;
-        material = figureHit.material;
-        isLight  = figureHit.isLight;
+        return figureHit;
     }
 
-    return HitInfo(result, -rd, material, isLight);
+    return HitInfo(result, -rd, material, isLight, 1, 1);
 }
 
 // https://www.shadertoy.com/view/XsXXDB
@@ -625,9 +649,9 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         float n1, n2;
         if (!hitInfo.hit.inside) {
             n1 = 1.;
-            n2 = hitInfo.material.n;
+            n2 = hitInfo.n_from;
         } else {
-            n1 = hitInfo.material.n;
+            n1 = hitInfo.n_from;
             n2 = 1.;
         }
 
@@ -675,14 +699,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         currentHit = hitInfo; // li
         currentRo  = pos; // lro
 
-        float n, n_out;
-        if (hitInfo.hit.inside) {
-            n     = hitInfo.material.n;
-            n_out = 1.;
-        } else {
-            n     = 1. / hitInfo.material.n;
-            n_out = hitInfo.material.n;
-        }
+        float n = currentHit.n_from / currentHit.n_to;
 
         currentRd = refract(rd, currentHit.hit.normal, n); // lrd
         currentRo += 0.0001 * currentRd;
@@ -702,13 +719,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             vec3 color = shade(currentHit);
             refr_accum += color * refr;
 
-            if (currentHit.hit.inside) {
-                n     = currentHit.material.n;
-                n_out = 1.;
-            } else {
-                n     = n_out / currentHit.material.n;
-                n_out = currentHit.material.n;
-            }
+            n = currentHit.n_from / currentHit.n_to;
 
             currentRd = refract(currentRd, currentHit.hit.normal, n); // lrd
             currentRo = currentHit.hit.pos + 0.0001 * currentRd;
