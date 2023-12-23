@@ -50,11 +50,10 @@ struct RenderItem {
 struct Hit {
     float t;
     vec3 normal; // normal of the surface at hit point
-    vec3 pos; // hit position
     bool inside;
 };
 
-#define NO_HIT Hit(-1, vec3(0), vec3(0), false)
+#define NO_HIT Hit(-1, vec3(0), false)
 
 
 struct HitInfo {
@@ -184,9 +183,9 @@ Hit intersectSphere(vec3 ro, vec3 rd, RenderItem sphere)
     t        = t > EPSILON * 10 ? t : -1;
     vec3 pos = ro + rd * t;
     if (sign(t1) != sign(t2)) {
-        return Hit(t, -normalize(pos - sphere.position), pos, true);
+        return Hit(t, -normalize(pos - sphere.position), true);
     } else {
-        return Hit(t, normalize(pos - sphere.position), pos, false);
+        return Hit(t, normalize(pos - sphere.position), false);
     }
 }
 
@@ -219,10 +218,10 @@ Hit intersectCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
     bool good2 = y2 > 0.0 && y2 < baba;
 
     if (good1) {
-        return Hit(t1, (oc + t1 * rd - ba * y1 / baba) / ra, ro + t1 * rd, false);
+        return Hit(t1, (oc + t1 * rd - ba * y1 / baba) / ra, false);
     }
     if (good2) {
-        return Hit(t2, (oc + t2 * rd - ba * y2 / baba) / ra, ro + t2 * rd, true);
+        return Hit(t2, (oc + t2 * rd - ba * y2 / baba) / ra, true);
     }
     return NO_HIT; // no intersection
 }
@@ -238,7 +237,7 @@ Hit intersectDisc(vec3 ro, vec3 rd, RenderItem plane)
     float dist = length(q);
 
     t = t > EPSILON && dist < plane.size ? t : -1;
-    return Hit(t, plane.normal, ro + rd * t, false);
+    return Hit(t, plane.normal, false);
 }
 
 
@@ -292,16 +291,16 @@ Hit intersectCappedCylinder(vec3 ro, vec3 rd, RenderItem cylinder)
 
 
     if (good1) {
-        return Hit(t1,  (oc + t1 * rd - ba * y1 / baba) / ra, ro + t1 * rd, false);
+        return Hit(t1,  (oc + t1 * rd - ba * y1 / baba) / ra, false);
     }
     if (pass_caps[closerCap]) {
-        return Hit(t_caps[closerCap], n_caps[closerCap], ro + t_caps[closerCap] * rd, false);
+        return Hit(t_caps[closerCap], n_caps[closerCap], false);
     }
     if (good2) {
-        return Hit(t2, -(oc + t2 * rd - ba * y2 / baba) / ra, ro + t2 * rd, true);
+        return Hit(t2, -(oc + t2 * rd - ba * y2 / baba) / ra, true);
     }
     if (pass_caps[furtherCap]) {
-        return Hit(t_caps[furtherCap], -n_caps[furtherCap], ro + t_caps[furtherCap] * rd, true);
+        return Hit(t_caps[furtherCap], -n_caps[furtherCap], true);
     }
 
     return NO_HIT; // no intersection
@@ -320,7 +319,7 @@ Hit intersectPlane(vec3 ro, vec3 rd, RenderItem plane)
     float dist = max(abs(dot(q, d1)), abs(dot(q, d2)));
 
     t = t > EPSILON && dist < plane.size ? t : -1;
-    return Hit(t, plane.normal, ro + rd * t, false);
+    return Hit(t, plane.normal, false);
 }
 
 
@@ -473,7 +472,8 @@ HitInfo traceRay(vec3 ro, vec3 rd)
 
     if (hitIndex == itemCount - 1) {
         vec4 newColor = vec4(0, 0, 0, 1);
-        if (int(floor(result.pos.x + 0.5)) % 2 == int(floor(result.pos.z + 0.5)) % 2) {
+        vec3 pos = ro + rd * result.t;
+        if (int(floor(pos.x + 0.5)) % 2 == int(floor(pos.z + 0.5)) % 2) {
             newColor = vec4(1, 1, 1, 1);
         }
         material.color = newColor.xyz;
@@ -491,14 +491,14 @@ HitInfo traceRay(vec3 ro, vec3 rd)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeBlinnPhong(HitInfo hitInfo, RenderItem light)
+vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, RenderItem light)
 {
     float diffuse  = 0.6;
     float specular = 0.4;
     vec3 n         = hitInfo.hit.normal;
 
     vec3 res = vec3(0.);
-    vec3 ld  = normalize(light.position - hitInfo.hit.pos);
+    vec3 ld  = normalize(light.position - pos);
     res      = hitInfo.material.color * diffuse * dot(n, ld);
     vec3 h   = normalize(hitInfo.ed + ld);
     res += specular * pow(dot(n, h), 16.);
@@ -508,12 +508,12 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, RenderItem light)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light)
+vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, RenderItem light)
 {
     float roughness = hitInfo.material.roughness;
     float K         = hitInfo.material.density;
     //
-    vec3 ld     = normalize(light.position - hitInfo.hit.pos);
+    vec3 ld     = normalize(light.position - pos);
     vec3 h      = normalize(hitInfo.ed + ld);
     float NdotL = clamp(dot(hitInfo.hit.normal, ld), 0., 1.);
     float NdotH = clamp(dot(hitInfo.hit.normal, h), 0., 1.);
@@ -547,7 +547,7 @@ vec3 shadeCookTorrance(HitInfo hitInfo, RenderItem light)
     return res;
 }
 
-vec3 shade(HitInfo hitInfo)
+vec3 shade(HitInfo hitInfo, vec3 pos)
 {
     float frac     = 1. / float(LIGHT_COUNT);
     vec3 res_color = vec3(0.);
@@ -559,7 +559,7 @@ vec3 shade(HitInfo hitInfo)
             return hitInfo.material.color;
         }
 
-        vec3 color = shadeCookTorrance(hitInfo, light);
+        vec3 color = shadeCookTorrance(hitInfo, pos, light);
         res_color += color * frac;
     }
     return res_color;
@@ -677,16 +677,16 @@ void whatColorIsThere(vec3 ro, vec3 rd)
     }
 
     if (hit.t > EPSILON) {
-        vec3 pos = hit.pos;
+        vec3 primaryPos = ro + rd * hit.t;
 
-        float primaryShadow = calculateShadow(pos + hit.normal * 0.001);
+        float primaryShadow = calculateShadow(primaryPos + hit.normal * 0.001);
         primaryShadow *= 1 - hitInfo.material.transparency;
 
-        vec3 color        = shade(hitInfo);
+        vec3 color        = shade(hitInfo, primaryPos);
         vec3 primaryColor = hitInfo.material.color;
 
         HitInfo currentHit = hitInfo;
-        vec3 currentRo     = pos;
+        vec3 currentRo     = primaryPos;
         vec3 currentRd     = reflect(rd, currentHit.hit.normal);
         currentRo += 0.0001 * currentRd;
         float refl = 1;
@@ -724,6 +724,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 refl_accum   = vec3(0);
         float refl_shadow = 1;
+        vec3 pos = primaryPos;
         // handle reflections
         for (int k = 1; k < 4; ++k) {
             refl *= 1. - currentHit.material.density;
@@ -734,20 +735,21 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             if (currentHit.hit.t < EPSILON)
                 break;
 
-            refl_shadow *= calculateShadowHard(currentHit.hit.pos);
+            pos = currentRo + currentHit.hit.t * currentRd;
+            refl_shadow *= calculateShadowHard(pos);
 
-            vec3 color = shade(currentHit);
+            vec3 color = shade(currentHit, pos);
 
             refl_accum += color * refl;
 
-            currentRo = currentHit.hit.pos;
+            currentRo = pos;
             currentRd = reflect(currentRd, currentHit.hit.normal);
             currentRo += 0.0001 * currentRd;
         }
 
         // handle refraction
         currentHit = hitInfo; // li
-        currentRo  = pos; // lro
+        currentRo  = primaryPos; // lro
 
         float n;
         if (hitInfo.hit.inside) {
@@ -773,8 +775,9 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             if (currentHit.hit.t < EPSILON)
                 break;
 
+            pos = currentRo + currentHit.hit.t * currentRd;
             if (!currentHit.hit.inside) {
-                refr_shadow += calculateShadow(currentHit.hit.pos) * (1 - currentHit.material.transparency);
+                refr_shadow += calculateShadow(pos) * (1 - currentHit.material.transparency);
                 n = refr_stack[stack_index] / currentHit.material.n;
                 stack_index++;
                 refr_stack[stack_index] = currentHit.material.n;
@@ -784,11 +787,11 @@ void whatColorIsThere(vec3 ro, vec3 rd)
                 n           = currentHit.material.n / refr_stack[stack_index];
             }
 
-            vec3 color = shade(currentHit);
+            vec3 color = shade(currentHit, pos);
             refr_accum += color * refr;
 
             currentRd = refract(currentRd, currentHit.hit.normal, n); // lrd
-            currentRo = currentHit.hit.pos + 0.0001 * -currentHit.hit.normal;
+            currentRo = pos + 0.0001 * -currentHit.hit.normal;
 
             if (refr < 0.0001)
                 break;
