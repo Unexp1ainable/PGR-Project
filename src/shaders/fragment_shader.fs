@@ -351,6 +351,7 @@ FIND_CLOSEST_HIT_FN(2)
 FIND_CLOSEST_HIT_FN(3)
 FIND_CLOSEST_HIT_FN(4)
 FIND_CLOSEST_HIT_FN(5)
+FIND_CLOSEST_HIT_FN(6)
 
 HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
 {
@@ -413,10 +414,11 @@ HitInfo intersectQueen(vec3 ro, vec3 rd, float x, float z, int color)
 {
     Hit hits[5];
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
-    hits[1] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.14, 0.6);
-    hits[2] = intersectSphere(ro, rd, vec3(x, 0.8, z), 0.2);
-    hits[3] = intersectSphere(ro, rd, vec3(x, 1., z), 0.1);
-    hits[4] = intersectUpperCappedCylinder(ro, rd, vec3(x, 1.07, z), vec3(0, 1, 0), 0.03, 0.1);
+    hits[1] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.6);
+    hits[2] = intersectSphere(ro, rd, vec3(x, 0.8, z), 0.15);
+    hits[3] = intersectCappedCylinder(ro, rd, vec3(x, 0.8, z), vec3(0,1,0), 0.15, 0.2);
+    hits[4] = intersectSphere(ro, rd, vec3(x, 1, z), 0.04);
+    // hits[4] = intersectUpperCappedCylinder(ro, rd, vec3(x, 1, z), vec3(0, 1, 0), 0.03, 0.1);
 
     return HitInfo(findClosestHit(hits), -rd, materialRed, false);
 }
@@ -443,7 +445,6 @@ HitInfo intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, f
         case FIGURE_QUEEN: {
             return intersectQueen(ro, rd, x, z, color);
         }
-
         default:
             return HitInfo(NO_HIT, -rd, materialRed, false);
     }
