@@ -399,14 +399,28 @@ HitInfo intersectBishop(vec3 ro, vec3 rd, float x, float z, int color)
 
 HitInfo intersectKing(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    Hit hits[4];
+    Hit hits[5];
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
-    hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.2, 0.6);
-    hits[2] = intersectSphere(ro, rd, vec3(x, 0.7, z), 0.2);
-    hits[3] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.85, z), vec3(0, 1, 0), 0.05, 0.1);
+    hits[1] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.14, 0.6);
+    hits[2] = intersectSphere(ro, rd, vec3(x, 0.8, z), 0.2);
+    hits[3] = intersectSphere(ro, rd, vec3(x, 1., z), 0.1);
+    hits[4] = intersectUpperCappedCylinder(ro, rd, vec3(x, 1.07, z), vec3(0, 1, 0), 0.03, 0.1);
 
     return HitInfo(findClosestHit(hits), -rd, materialRed, false);
 }
+
+HitInfo intersectQueen(vec3 ro, vec3 rd, float x, float z, int color)
+{
+    Hit hits[5];
+    hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
+    hits[1] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.14, 0.6);
+    hits[2] = intersectSphere(ro, rd, vec3(x, 0.8, z), 0.2);
+    hits[3] = intersectSphere(ro, rd, vec3(x, 1., z), 0.1);
+    hits[4] = intersectUpperCappedCylinder(ro, rd, vec3(x, 1.07, z), vec3(0, 1, 0), 0.03, 0.1);
+
+    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+}
+
 
 HitInfo intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float z)
 {
@@ -425,6 +439,9 @@ HitInfo intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, f
         }
         case FIGURE_KING: {
             return intersectKing(ro, rd, x, z, color);
+        }
+        case FIGURE_QUEEN: {
+            return intersectQueen(ro, rd, x, z, color);
         }
 
         default:
@@ -482,7 +499,7 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         material.color = newColor.xyz;
     }
 
-    HitInfo figureHit = intersectFigure(ro, rd, FIGURE_KING, COLOR_WHITE, x, z);
+    HitInfo figureHit = intersectFigure(ro, rd, FIGURE_QUEEN, COLOR_WHITE, x, z);
 
     if (figureHit.hit.t > EPSILON && figureHit.hit.t < result.t || result.t < EPSILON) {
         result   = figureHit.hit;
