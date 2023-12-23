@@ -298,33 +298,29 @@ Hit intersectPlane(vec3 ro, vec3 rd, vec3 center, vec3 normal, vec3 direction, f
     return Hit(t, normal, false);
 }
 
+// axis aligned box centered at the origin, with size boxSize
+Hit boxIntersection( in vec3 ro, in vec3 rd, vec3 pos, vec3 boxSize) 
+{
+    vec3 wro = ro - pos; // ro relative to box center
 
-// #define TRACE_N_OBJECTS(n)                                                                                                                           \
-//     HitInfo traceObjects##n(vec3 ro, vec3 rd, RenderItem items[n])                                                                                   \
-//     {                                                                                                                                                \
-//         float min_t  = 1000000;                                                                                                                      \
-//         int hitIndex = 0;                                                                                                                            \
-//         Hit result   = NO_HIT;                                                                                                                       \
-//         Material material;                                                                                                                           \
-//         bool isLight;                                                                                                                                \
-//         for (int i = 0; i < n; ++i) {                                                                                                                \
-//             Hit hit = traceIntersect(ro, rd, items[i]);                                                                                              \
-//             if (hit.t < EPSILON) {                                                                                                                   \
-//                 continue;                                                                                                                            \
-//             }                                                                                                                                        \
-//             if (hit.t < min_t) {                                                                                                                     \
-//                 min_t    = hit.t;                                                                                                                    \
-//                 result   = hit;                                                                                                                      \
-//                 material = items[i].material;                                                                                                        \
-//                 isLight  = items[i].type == TYPE_POINT_LIGHT;                                                                                        \
-//                 hitIndex = i;                                                                                                                        \
-//             }                                                                                                                                        \
-//         }                                                                                                                                            \
-//         return HitInfo(result, -rd, material, isLight);                                                                                              \
-//     }
+    vec3 m = 1.0/rd; // can precompute if traversing a set of aligned boxes
+    vec3 n = m*wro;   // can precompute if traversing a set of aligned boxes
+    vec3 k = abs(m)*boxSize;
+    vec3 t1 = -n - k;
+    vec3 t2 = -n + k;
+    float tN = max( max( t1.x, t1.y ), t1.z );
+    float tF = min( min( t2.x, t2.y ), t2.z );
+    if( tN>tF || tF<0.0) return NO_HIT; // no intersection
+    vec3 outNormal = (tN>0.0) ? step(vec3(tN),t1) : // ro ouside the box
+                           step(t2,vec3(tF));  // ro inside the box
+    outNormal *= -sign(rd);
 
-// TRACE_N_OBJECTS(3)
-// TRACE_N_OBJECTS(4)
+    if (tN < 0.0) {
+        tN = tF;
+    }
+    return Hit(tN, outNormal, false);
+}
+
 
 #define FIND_CLOSEST_HIT_FN(array_len)                                                                                                               \
     Hit findClosestHit(Hit hits[array_len])                                                                                                          \
@@ -355,13 +351,19 @@ FIND_CLOSEST_HIT_FN(6)
 
 HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    Hit hits[3];
+    Hit hits[4];
 
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.0001, z), vec3(0, 1, 0), 0.3, 0.1);
     hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9);
     hits[2] = intersectSphere(ro, rd, vec3(x, 0.9, z), 0.2);
+    hits[3] = boxIntersection(ro, rd, vec3(x, 0.55, z), vec3(0.3, 0.55, 0.3)); // bounding box
 
-    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+    Hit res = findClosestHit(hits);
+    Material mat = materialGray;
+    if (res.t == hits[3].t) {
+        mat = materialRed;
+    }
+    return HitInfo(res, -rd, mat, false);
 }
 
 HitInfo intersectRook(vec3 ro, vec3 rd, float x, float z, int color)
@@ -500,12 +502,10 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         material.color = newColor.xyz;
     }
 
-    HitInfo figureHit = intersectFigure(ro, rd, FIGURE_QUEEN, COLOR_WHITE, x, z);
+    HitInfo figureHit = intersectFigure(ro, rd, FIGURE_PAWN, COLOR_WHITE, x, z);
 
     if (figureHit.hit.t > EPSILON && figureHit.hit.t < result.t || result.t < EPSILON) {
-        result   = figureHit.hit;
-        material = figureHit.material;
-        isLight  = figureHit.isLight;
+        return figureHit;
     }
 
     return HitInfo(result, -rd, material, isLight);
