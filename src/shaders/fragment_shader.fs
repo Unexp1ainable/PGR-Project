@@ -19,15 +19,17 @@ in vec4 gl_FragCoord;
 #define TYPE_POINT_LIGHT     5
 
 
-#define FIGURE_PAWN   0
-#define FIGURE_KING   1
-#define FIGURE_QUEEN  2
-#define FIGURE_BISHOP 3
-#define FIGURE_KNIGHT 4
-#define FIGURE_ROOK   5
+#define FIGURE_EMPTY  0
+#define FIGURE_PAWN   1
+#define FIGURE_KING   2
+#define FIGURE_QUEEN  3
+#define FIGURE_BISHOP 4
+#define FIGURE_KNIGHT 5
+#define FIGURE_ROOK   6
 
-#define COLOR_WHITE 0
-#define COLOR_BLACK 1
+#define COLOR_NONE  0
+#define COLOR_WHITE 1
+#define COLOR_BLACK 2
 
 struct Material {
     vec3 color; // diffuse color
@@ -57,7 +59,7 @@ uniform int screenWidth       = 1024;
 uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
 uniform int reflectionBounces = 3;
-uniform int shadowRays        = 8;
+uniform int shadowRays        = 1;
 uniform vec3 lightPosition    = vec3(0, 4, 0);
 uniform float n               = 1.2;
 uniform uint time             = 42;
@@ -65,6 +67,29 @@ uniform uint time             = 42;
 uniform float roughness    = 0.68;
 uniform float transparency = 0.5;
 uniform float density      = 0.8;
+uniform int chessBoard[8*8*2];
+//  = {
+//         {{FIGURE_ROOK, COLOR_WHITE}, {FIGURE_KNIGHT, COLOR_WHITE}, {FIGURE_BISHOP, COLOR_WHITE}, {FIGURE_QUEEN, COLOR_WHITE}, {FIGURE_KING, COLOR_WHITE}, {FIGURE_BISHOP, COLOR_WHITE}, {FIGURE_KNIGHT, COLOR_WHITE}, {FIGURE_ROOK, COLOR_WHITE}},
+//         {{FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}},
+//         {{FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}},
+//         {{FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}},
+//         {{FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}},
+//         {{FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}},
+//         {{FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}},
+//         {{FIGURE_ROOK, COLOR_BLACK}, {FIGURE_KNIGHT, COLOR_BLACK}, {FIGURE_BISHOP, COLOR_BLACK}, {FIGURE_QUEEN, COLOR_BLACK}, {FIGURE_KING, COLOR_BLACK}, {FIGURE_BISHOP, COLOR_BLACK}, {FIGURE_KNIGHT, COLOR_BLACK}, {FIGURE_ROOK, COLOR_BLACK}}
+//     };
+//  = {
+    
+//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
+//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
+//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
+//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
+//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
+//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
+//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
+//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
+    
+// };
 
 Material materialRed   = Material(vec3(1, 0, 0), n, 0.1, 1., 0.);
 Material materialGreen = Material(vec3(0, 1, 0), 1.4, roughness, transparency, density);
@@ -78,7 +103,7 @@ struct LightItem {
     Material material;
 };
 
-LightItem light = LightItem(vec3(0, 4, 0), 0.5, Material(vec3(1, 1, 1), 1., roughness, 0., 1.));
+LightItem light = LightItem(lightPosition, 0.5, Material(vec3(1, 1, 1), 1., roughness, 0., 1.));
 
 #define LIGHT_COUNT 1
 LightItem[LIGHT_COUNT] lights = {
@@ -508,6 +533,30 @@ HitInfo intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, f
     }
 }
 
+HitInfo intersectFigures(vec3 ro, vec3 rd)
+{
+    // return intersectFigure(ro, rd, FIGURE_BISHOP, COLOR_WHITE, 0, 0);
+    // return intersectBishop(ro, rd, 0, 0, 0);
+    float min_t    = 1000000;
+    HitInfo result = HitInfo(NO_HIT, -rd, materialRed, false);
+
+    for (int row = 0; row < 8; row++) {
+        for (int col = 0; col < 8; col++) {
+            int figure_type = chessBoard[(row*8 + col)*2];
+            int color       = chessBoard[(row*8 + col)*2+1];
+            float x         = col - 4;
+            float z         = row - 4;
+            HitInfo hitInfo = intersectFigure(ro, rd, figure_type, color, x, z);
+            if (hitInfo.hit.t > EPSILON && hitInfo.hit.t < min_t) {
+                min_t  = hitInfo.hit.t;
+                result = hitInfo;
+            }
+        }
+    }
+
+    return result;
+}
+
 HitInfo traceRay(vec3 ro, vec3 rd)
 {
     float x = 0;
@@ -558,7 +607,7 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         material.color = newColor.xyz;
     }
 
-    HitInfo figureHit = intersectFigure(ro, rd, FIGURE_QUEEN, COLOR_WHITE, x, z);
+    HitInfo figureHit = intersectFigures(ro, rd);
 
     if (figureHit.hit.t > EPSILON && figureHit.hit.t < result.t || result.t < EPSILON) {
         return figureHit;
@@ -874,7 +923,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
                 break;
         }
         refr_shadow = clamp(refr_shadow, 0., 1.);
-        accum += refr_accum * transmission_coef + refl_accum * reflection_coef * refl_shadow * dinv;
+        accum += refr_accum * transmission_coef * (1 - refr_shadow) + refl_accum * reflection_coef * refl_shadow * dinv;
         // accum *= primaryShadow;
 
         fSpecDiff = vec4(accum, 1);

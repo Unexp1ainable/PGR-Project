@@ -110,6 +110,7 @@ void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
 
     auto start = std::chrono::high_resolution_clock::now();
     auto end   = std::chrono::high_resolution_clock::now();
+    synchronizer.syncUniformsForce(uniforms);
 
     while (running) {
         end                                    = std::chrono::high_resolution_clock::now();

@@ -43,4 +43,21 @@ void UniformSynchronizer::syncUniforms(const UniformStore &store) {
         m_gpu_uniforms.time = store.time;
         glProgramUniform1ui(m_program, glGetUniformLocation(m_program, "time"), store.time);
     }
+    if (store.chessBoard != m_gpu_uniforms.chessBoard) {
+        m_gpu_uniforms.chessBoard = store.chessBoard;
+        glProgramUniform1iv(m_program, glGetUniformLocation(m_program, "chessBoard"), 8*8*2, store.chessBoard.data());
+    }
+}
+
+void UniformSynchronizer::syncUniformsForce(UniformStore const& store) {
+    glProgramUniformMatrix4fv(m_program, glGetUniformLocation(m_program, "cameraMatrix"), 1, GL_FALSE, glm::value_ptr(store.cameraMatrix));
+    glProgramUniform1i(m_program, glGetUniformLocation(m_program, "screenWidth"), store.screenWidth);
+    glProgramUniform1i(m_program, glGetUniformLocation(m_program, "screenHeight"), store.screenHeight);
+    glProgramUniform3fv(m_program, glGetUniformLocation(m_program, "lightPosition"), 1, glm::value_ptr(store.lightPosition));
+    glProgramUniform1f(m_program, glGetUniformLocation(m_program, "roughness"), store.roughness);
+    glProgramUniform1f(m_program, glGetUniformLocation(m_program, "transparency"), store.transparency);
+    glProgramUniform1f(m_program, glGetUniformLocation(m_program, "density"), store.density);
+    glProgramUniform1f(m_program, glGetUniformLocation(m_program, "n"), store.n);
+    glProgramUniform1ui(m_program, glGetUniformLocation(m_program, "time"), store.time);
+    glProgramUniform1iv(m_program, glGetUniformLocation(m_program, "chessBoard"), 8*8*2, store.chessBoard.data());
 }
