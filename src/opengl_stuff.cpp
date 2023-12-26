@@ -1,14 +1,19 @@
 #include "opengl_stuff.h"
 #include "constants.h"
 #include "generated/shaders/fragment_shader.h"
-#include "generated/shaders/vertex_shader.h"
 #include "generated/shaders/show_texture.h"
+#include "generated/shaders/vertex_shader.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+
 
 #include <geGL/StaticCalls.h>
 
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string>
+#include <vector>
 
 
 using namespace ge::gl;
@@ -120,29 +125,11 @@ void GLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severi
     printf("%d: %s of %s severity, raised from %s: %s\n", id, _type.c_str(), _severity.c_str(), _source.c_str(), msg);
 }
 
-OpenGLContext::OpenGLContext()
+
+void OpenGLContext::createGBuffer()
 {
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(GLDebugMessageCallback, NULL);
-
-    std::string vSrc = VERTEX_SHADER_SOURCE;
-    std::string fSrc = FRAGMENT_SHADER_SOURCE;
-    std::string tfSrc = SHOW_TEXTURE_SOURCE;
-
-    // TODO remove
-    vSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/vertex_shader.vs");
-    fSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/fragment_shader.fs");
-    tfSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/show_texture.fs");
-
-    auto vShader = createShader(GL_VERTEX_SHADER, vSrc);
-    auto fShader = createShader(GL_FRAGMENT_SHADER, fSrc);
-    auto tfShader = createShader(GL_FRAGMENT_SHADER, tfSrc);
-    
-
     glGenFramebuffers(1, &m_fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-
 
     // Create the gbuffer textures
     glGenTextures(1, &m_shadowTexture);
@@ -170,20 +157,85 @@ OpenGLContext::OpenGLContext()
     if (glCheckNamedFramebufferStatus(m_fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         std::cerr << "framebuffer incomplete " << status << std::endl;
     }
+}
 
-    m_renderPrg = createProgram({ vShader, fShader });
+unsigned int loadCubemap(std::vector<std::string> faces)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    for (unsigned int i = 0; i < faces.size(); i++) {
+        unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        if (data) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        } else {
+            std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
+}
+
+void OpenGLContext::createSkybox()
+{
+    std::vector<std::string> textures_faces = {
+        "../resources/posx.jpg", 
+        "../resources/negx.jpg", 
+        "../resources/posy.jpg",
+        "../resources/negy.jpg", 
+        "../resources/posz.jpg", 
+        "../resources/negz.jpg",
+    };
+    m_skybox = loadCubemap(textures_faces);
+}
+
+OpenGLContext::OpenGLContext()
+{
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(GLDebugMessageCallback, NULL);
+
+    std::string vSrc  = VERTEX_SHADER_SOURCE;
+    std::string fSrc  = FRAGMENT_SHADER_SOURCE;
+    std::string tfSrc = SHOW_TEXTURE_SOURCE;
+
+    // TODO remove
+    vSrc  = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/vertex_shader.vs");
+    fSrc  = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/fragment_shader.fs");
+    tfSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/show_texture.fs");
+
+    auto vShader  = createShader(GL_VERTEX_SHADER, vSrc);
+    auto fShader  = createShader(GL_FRAGMENT_SHADER, fSrc);
+    auto tfShader = createShader(GL_FRAGMENT_SHADER, tfSrc);
+
+    createGBuffer();
+    createSkybox();
+
+    m_renderPrg      = createProgram({ vShader, fShader });
     m_showTexturePrg = createProgram({ vShader, tfShader });
-    m_vao       = createVAO();
-
+    m_vao            = createVAO();
 }
 
 void OpenGLContext::useRenderProgram() const
 {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo);
-
     glClear(GL_COLOR_BUFFER_BIT);
     glBindVertexArray(m_vao);
     glUseProgram(m_renderPrg);
+
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, m_skybox);
+    glUniform1i(glGetUniformLocation(m_renderPrg, "skybox"), 3);
+
     glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
     glBindVertexArray(0);
 }
@@ -192,7 +244,7 @@ void OpenGLContext::showTexture()
 {
     glUseProgram(m_showTexturePrg);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glReadBuffer(GL_COLOR_ATTACHMENT2);
 
     // Bind the texture to texture unit 0
@@ -214,11 +266,16 @@ void OpenGLContext::showTexture()
     glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureShadows"), 2);
 
 
+    glEnable(GL_BLEND); 
+
+
     glBindVertexArray(m_vao);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindVertexArray(0);
+
+    glDisable(GL_BLEND);
 }
 
 GLuint OpenGLContext::createShader(GLenum type, std::string const& src)

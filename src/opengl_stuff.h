@@ -16,15 +16,14 @@ const std::vector<glm::vec3> VAO_DATA = {
 };
 
 
-
-
 class OpenGLContext {
 public:
     OpenGLContext();
 
     void useRenderProgram() const;
 
-    GLuint getRenderProgram() const { return m_renderPrg; }
+    GLuint getFirstPassProgram() const { return m_renderPrg; }
+    GLuint getSecondPassProgram() const { return m_showTexturePrg; }
     void showTexture();
     // GLuint getVAO() const { return m_vao; }
 
@@ -32,6 +31,8 @@ protected:
     GLuint createShader(GLenum type, std::string const& src);
     GLuint createProgram(std::vector<GLuint> const& shaders);
     GLuint createVAO();
+    void createGBuffer();
+    void createSkybox();
 
 private:
     GLuint m_vao;
@@ -42,4 +43,5 @@ private:
     GLuint m_shadowTexture;
     GLuint m_specDiffTexture;
     GLuint m_ambientTexture;
+    GLuint m_skybox;
 };

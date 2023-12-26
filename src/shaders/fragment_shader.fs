@@ -4,6 +4,7 @@ layout(location = 1) out vec4 fSpecDiff;
 layout(location = 2) out vec4 fAmbient;
 
 in vec4 gl_FragCoord;
+uniform samplerCube skybox;
 
 
 #define ORIGIN       vec3(0, 0, 0)
@@ -62,6 +63,7 @@ uniform int shadowRays        = 1;
 uniform vec3 lightPosition    = vec3(0, 4, 0);
 uniform float n               = 1.2;
 uniform uint time             = 42;
+uniform uint accumCounter = 1;
 
 uniform float roughness    = 0.68;
 uniform float transparency = 0.5;
@@ -695,8 +697,10 @@ float hash12(vec2 p)
 
 vec2 randomSampleUnitCircle(vec2 st)
 {
+    st.x += time;
     float seed  = hash12(st);
     float r     = sqrt(seed);
+    st.y += time;
     float seed2 = hash12(vec2(st.y, st.x));
     float theta = 6.28318530718 * seed2;
     return vec2(r, theta);
@@ -855,6 +859,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             currentHit = traceRay(currentRo, currentRd);
             Material material = materials[currentHit.materialId];
             if (currentHit.hit.t < EPSILON)
+                refl_accum += texture(skybox, currentRd).xyz * refl;
                 break;
 
 
@@ -883,7 +888,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         currentRd = refract(rd, currentHit.hit.normal, n); // lrd
         currentRo += 0.0001 * -currentHit.hit.normal;
-        float refr = 1;
+        float refr = 1* material.transparency;
 
         float[20] refr_stack;
         refr_stack[0]   = 1.;
@@ -892,11 +897,20 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 refr_accum   = vec3(0);
         float refr_shadow = 0;
-        for (int k = 1; k < 6; ++k) {
-            refr *= material.transparency;
+        for (int k = 1; k < 12; ++k) {
+            if (refr < 0.0001 || refr_shadow > 0.99)
+                break;
+
             currentHit = traceRay(currentRo, currentRd);
             material = materials[currentHit.materialId];
-            if (currentHit.hit.t < EPSILON)
+            bool miss = currentHit.hit.t < EPSILON;
+            if (miss) {
+                refr_accum += texture(skybox, currentRd).xyz * refr;
+            }
+
+            if (miss)
+                // refr_accum += texture(skybox, currentRd).xyz * refr;
+                // refr_accum = vec3(0,1,0);
                 break;
 
             pos = currentRo + currentHit.hit.t * currentRd;
@@ -916,9 +930,8 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
             currentRd = refract(currentRd, currentHit.hit.normal, n); // lrd
             currentRo = pos + 0.0001 * -currentHit.hit.normal;
+            refr *= material.transparency;
 
-            if (refr < 0.0001 || refr_shadow > 0.99)
-                break;
         }
         refr_shadow = clamp(refr_shadow, 0., 1.);
         accum += refr_accum * transmission_coef * (1 - refr_shadow) + refl_accum * reflection_coef * refl_shadow * dinv;
@@ -935,7 +948,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         // fShadow =  primaryShadow;
 
     } else {
-        fSpecDiff = vec4(0, 0, 0, 1);
+        fSpecDiff = vec4(texture(skybox, rd).rgb, 1.0);
         fAmbient  = vec4(0, 0, 0, 1);
         fShadow   = 0;
     }

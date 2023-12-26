@@ -15,6 +15,7 @@ public:
     float transparency      = 0.5;
     float density           = 0.8;
     float n                 = 1.5;
+    glm::uint32_t accumCounter      = 1;
     chessboard::Configuration chessBoard{};
     glm::uint32 time;
 };
@@ -22,8 +23,8 @@ public:
 
 class UniformSynchronizer {
 public:
-    UniformSynchronizer(GLuint program)
-        : m_program(program)
+    UniformSynchronizer(GLuint firstPassProgram, GLuint secondPassProgram)
+        : m_program1(firstPassProgram), m_program2(secondPassProgram)
     {
     }
 
@@ -32,5 +33,6 @@ public:
 
 private:
     UniformStore m_gpu_uniforms {};
-    GLuint m_program;
+    GLuint m_program1;
+    GLuint m_program2;
 };

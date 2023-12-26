@@ -6,9 +6,8 @@ uniform sampler2D textureShadows;
 
 out vec4 FragColor;
 
-
-uniform float sigmaS = 3;
-uniform float sigmaL = 3;
+float sigmaS = 3;
+float sigmaL = 3;
 
 #define EPS 1e-5
 

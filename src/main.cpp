@@ -104,7 +104,7 @@ void processInput(bool& running, FreeLookCamera& camera, UniformStore& uniforms)
 void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
 {
     UniformStore uniforms;
-    UniformSynchronizer synchronizer(oglCtx.getRenderProgram());
+    UniformSynchronizer synchronizer(oglCtx.getFirstPassProgram(), oglCtx.getSecondPassProgram());
     FreeLookCamera camera {};
     bool running = true;
 
@@ -118,6 +118,7 @@ void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
         float fps                              = 1 / duration.count();
         start                                  = std::chrono::high_resolution_clock::now();
         processInput(running, camera, uniforms);
+        uniforms.time = SDL_GetTicks();
 
         // Update the uniforms
         synchronizer.syncUniforms(uniforms);
