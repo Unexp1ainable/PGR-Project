@@ -50,7 +50,6 @@ struct Hit {
 
 struct HitInfo {
     Hit hit;
-    vec3 ed; // eye direction
     int materialId;
     bool isLight;
 };
@@ -549,7 +548,7 @@ HitInfo intersectFigures(vec3 ro, vec3 rd)
         }
     }
 
-    return HitInfo(result, -rd, matId, false);
+    return HitInfo(result, matId, false);
 }
 
 HitInfo traceRay(vec3 ro, vec3 rd)
@@ -607,11 +606,11 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         return figureHit;
     }
 
-    return HitInfo(result, -rd, matId, isLight);
+    return HitInfo(result, matId, isLight);
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, LightItem light)
+vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, vec3 ed, LightItem light)
 {
     float diffuse  = 0.6;
     float specular = 0.4;
@@ -620,7 +619,7 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, LightItem light)
     vec3 res = vec3(0.);
     vec3 ld  = normalize(light.position - pos);
     res      = materials[hitInfo.materialId].color * diffuse * dot(n, ld);
-    vec3 h   = normalize(hitInfo.ed + ld);
+    vec3 h   = normalize(ed + ld);
     res += specular * pow(dot(n, h), 16.);
     res = clamp(res, 0., 1.);
 
@@ -628,17 +627,17 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, LightItem light)
 }
 
 // https://www.shadertoy.com/view/XsXXDB
-vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, LightItem light)
+vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, vec3 ed, LightItem light)
 {
     float roughness = materials[hitInfo.materialId].roughness;
     float K         = materials[hitInfo.materialId].density;
     //
     vec3 ld     = normalize(light.position - pos);
-    vec3 h      = normalize(hitInfo.ed + ld);
+    vec3 h      = normalize(ed + ld);
     float NdotL = clamp(dot(hitInfo.hit.normal, ld), 0., 1.);
     float NdotH = clamp(dot(hitInfo.hit.normal, h), 0., 1.);
-    float NdotV = clamp(dot(hitInfo.hit.normal, hitInfo.ed), 0., 1.);
-    float VdotH = clamp(dot(h, hitInfo.ed), 0., 1.);
+    float NdotV = clamp(dot(hitInfo.hit.normal, ed), 0., 1.);
+    float VdotH = clamp(dot(h, ed), 0., 1.);
     float rsq   = roughness * roughness;
 
     // Geometric Attenuation
@@ -667,7 +666,7 @@ vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, LightItem light)
     return res;
 }
 
-vec3 shade(HitInfo hitInfo, vec3 pos)
+vec3 shade(HitInfo hitInfo, vec3 pos, vec3 ed)
 {
     float frac     = 1. / float(LIGHT_COUNT);
     vec3 res_color = vec3(0.);
@@ -679,7 +678,7 @@ vec3 shade(HitInfo hitInfo, vec3 pos)
             return materials[hitInfo.materialId].color;
         }
 
-        vec3 color = shadeCookTorrance(hitInfo, pos, light);
+        vec3 color = shadeCookTorrance(hitInfo, pos, ed, light);
         res_color += color * frac;
     }
     return res_color;
@@ -803,7 +802,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         float primaryShadow = calculateShadow(primaryPos + hit.normal * 0.001);
         primaryShadow *= 1 - primaryMaterial.transparency;
 
-        vec3 color        = shade(hitInfo, primaryPos);
+        vec3 color        = shade(hitInfo, primaryPos, -rd);
         vec3 primaryColor = primaryMaterial.color;
 
         HitInfo currentHit = hitInfo;
@@ -862,7 +861,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             pos = currentRo + currentHit.hit.t * currentRd;
             refl_shadow *= calculateShadowHard(pos);
 
-            vec3 color = shade(currentHit, pos);
+            vec3 color = shade(currentHit, pos, -rd);
 
             refl_accum += color * refl;
 
@@ -912,7 +911,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
                 n           = material.n / refr_stack[stack_index];
             }
 
-            vec3 color = shade(currentHit, pos);
+            vec3 color = shade(currentHit, pos, -rd);
             refr_accum += color * refr;
 
             currentRd = refract(currentRd, currentHit.hit.normal, n); // lrd
