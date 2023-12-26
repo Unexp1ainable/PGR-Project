@@ -57,7 +57,7 @@ uniform int screenWidth       = 1024;
 uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
 uniform int reflectionBounces = 3;
-uniform int shadowRays        = 32;
+uniform int shadowRays        = 8;
 uniform vec3 lightPosition    = vec3(0, 4, 0);
 uniform float n               = 1.2;
 uniform uint time             = 42;
@@ -299,26 +299,40 @@ Hit intersectPlane(vec3 ro, vec3 rd, vec3 center, vec3 normal, vec3 direction, f
 }
 
 // axis aligned box centered at the origin, with size boxSize
-Hit boxIntersection( in vec3 ro, in vec3 rd, vec3 pos, vec3 boxSize) 
+Hit boxIntersection(in vec3 ro, in vec3 rd, vec3 pos, vec3 boxSize)
 {
     vec3 wro = ro - pos; // ro relative to box center
 
-    vec3 m = 1.0/rd; // can precompute if traversing a set of aligned boxes
-    vec3 n = m*wro;   // can precompute if traversing a set of aligned boxes
-    vec3 k = abs(m)*boxSize;
-    vec3 t1 = -n - k;
-    vec3 t2 = -n + k;
-    float tN = max( max( t1.x, t1.y ), t1.z );
-    float tF = min( min( t2.x, t2.y ), t2.z );
-    if( tN>tF || tF<0.0) return NO_HIT; // no intersection
-    vec3 outNormal = (tN>0.0) ? step(vec3(tN),t1) : // ro ouside the box
-                           step(t2,vec3(tF));  // ro inside the box
+    vec3 m   = 1.0 / rd; // can precompute if traversing a set of aligned boxes
+    vec3 n   = m * wro; // can precompute if traversing a set of aligned boxes
+    vec3 k   = abs(m) * boxSize;
+    vec3 t1  = -n - k;
+    vec3 t2  = -n + k;
+    float tN = max(max(t1.x, t1.y), t1.z);
+    float tF = min(min(t2.x, t2.y), t2.z);
+    if (tN > tF || tF < 0.0)
+        return NO_HIT; // no intersection
+    vec3 outNormal = (tN > 0.0) ? step(vec3(tN), t1) : // ro ouside the box
+        step(t2, vec3(tF)); // ro inside the box
     outNormal *= -sign(rd);
 
     if (tN < 0.0) {
         tN = tF;
     }
     return Hit(tN, outNormal, false);
+}
+
+bool boxIntersectionFast(in vec3 ro, in vec3 rd, vec3 pos, vec3 boxSize)
+{
+    vec3 wro = ro - pos; // ro relative to box center
+    vec3 m   = 1.0 / rd;
+    vec3 n   = m * wro;
+    vec3 k   = abs(m) * boxSize;
+    vec3 t1  = -n - k;
+    vec3 t2  = -n + k;
+    float tN = max(max(t1.x, t1.y), t1.z);
+    float tF = min(min(t2.x, t2.y), t2.z);
+    return !(tN > tF || tF < 0.0);
 }
 
 
@@ -351,57 +365,90 @@ FIND_CLOSEST_HIT_FN(6)
 
 HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    Hit hits[4];
+    if (!boxIntersectionFast(ro, rd, vec3(x, 0.55, z), vec3(0.3, 0.55, 0.3))) {
+        return HitInfo(NO_HIT, -rd, materialRed, false);
+    }
+
+    Hit hits[3];
 
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.0001, z), vec3(0, 1, 0), 0.3, 0.1);
     hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9);
     hits[2] = intersectSphere(ro, rd, vec3(x, 0.9, z), 0.2);
-    hits[3] = boxIntersection(ro, rd, vec3(x, 0.55, z), vec3(0.3, 0.55, 0.3)); // bounding box
+    // hits[3] = boxIntersection(ro, rd, vec3(x, 0.55, z), vec3(0.3, 0.55, 0.3)); // bounding box
 
     Hit res = findClosestHit(hits);
-    Material mat = materialGray;
-    if (res.t == hits[3].t) {
-        mat = materialRed;
-    }
-    return HitInfo(res, -rd, mat, false);
+    // Material mat = materialGray;
+    // if (res.t == hits[3].t) {
+    //     mat = materialRed;
+    // }
+    return HitInfo(res, -rd, materialRed, false);
 }
 
 HitInfo intersectRook(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    Hit hits[4];
-    hits[0] = intersectCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.4, 0.1);
-    hits[1] = intersectCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.32, 0.17);
-    hits[2] = intersectCylinder(ro, rd, vec3(x, 0.17, z), vec3(0, 1, 0), 0.2, 0.6);
-    hits[3] = intersectCylinder(ro, rd, vec3(x, 0.6, z), vec3(0, 1, 0), 0.25, 0.171);
+    if (!boxIntersectionFast(ro, rd, vec3(x, 0.4, z), vec3(0.4, 0.4, 0.4))) {
+        return HitInfo(NO_HIT, -rd, materialRed, false);
+    }
 
-    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+
+    Hit hits[4];
+    hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.4, 0.1);
+    hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.32, 0.17);
+    hits[2] = intersectCappedCylinder(ro, rd, vec3(x, 0.17, z), vec3(0, 1, 0), 0.2, 0.6);
+    hits[3] = intersectCappedCylinder(ro, rd, vec3(x, 0.6, z), vec3(0, 1, 0), 0.25, 0.171);
+    // hits[4] = boxIntersection(ro, rd, vec3(x, 0.4, z), vec3(0.4, 0.4, 0.4)); // bounding box
+
+    Hit res      = findClosestHit(hits);
+    Material mat = materialRed;
+
+    return HitInfo(res, -rd, mat, false);
 }
 
 HitInfo intersectKnight(vec3 ro, vec3 rd, float x, float z, int color)
 {
+    color   = COLOR_BLACK;
+    float r = color == COLOR_WHITE ? 1. : -1;
+
+    if (!boxIntersectionFast(ro, rd, vec3(x, 0.4, z + 0.05 * r), vec3(0.3, 0.5, 0.35))) {
+        return HitInfo(NO_HIT, -rd, materialRed, false);
+    }
+
     Hit hits[5];
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
     hits[1] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.2, 0.06);
-    hits[2] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), normalize(vec3(1, 2, 0)), 0.1, 0.6);
-    hits[3] = intersectCappedCylinder(ro, rd, vec3(x - 0.2, 0.5, z), normalize(vec3(1, 0.5, 0)), 0.1, 0.3);
-    hits[4] = intersectSphere(ro, rd, vec3(x + 0.2, 0.7, z), 0.2);
+    hits[2] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), normalize(vec3(0, 2, 1 * r)), 0.1, 0.6);
+    hits[3] = intersectCappedCylinder(ro, rd, vec3(x, 0.5, z - 0.2 * r), normalize(vec3(0, 0.5, 1 * r)), 0.1, 0.3);
+    hits[4] = intersectSphere(ro, rd, vec3(x, 0.7, z + 0.2 * r), 0.2);
 
-    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+    Hit res      = findClosestHit(hits);
+    Material mat = materialRed;
+
+    return HitInfo(res, -rd, mat, false);
 }
 
 HitInfo intersectBishop(vec3 ro, vec3 rd, float x, float z, int color)
 {
+    if (!boxIntersectionFast(ro, rd, vec3(x, 0.4751, z), vec3(0.3, 0.4751, 0.3))) {
+        return HitInfo(NO_HIT, -rd, materialRed, false);
+    }
+
     Hit hits[4];
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
     hits[1] = intersectCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.14, 0.5);
     hits[2] = intersectSphere(ro, rd, vec3(x, 0.7, z), 0.2);
     hits[3] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.85, z), vec3(0, 1, 0), 0.05, 0.1);
 
-    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+    Hit res      = findClosestHit(hits);
+    Material mat = materialRed;
+    return HitInfo(res, -rd, mat, false);
 }
 
 HitInfo intersectKing(vec3 ro, vec3 rd, float x, float z, int color)
 {
+    if (!boxIntersectionFast(ro, rd, vec3(x, 0.6, z), vec3(0.3, 0.6, 0.3))) {
+        return HitInfo(NO_HIT, -rd, materialRed, false);
+    }
+
     Hit hits[5];
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
     hits[1] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.14, 0.6);
@@ -409,20 +456,29 @@ HitInfo intersectKing(vec3 ro, vec3 rd, float x, float z, int color)
     hits[3] = intersectSphere(ro, rd, vec3(x, 1., z), 0.1);
     hits[4] = intersectUpperCappedCylinder(ro, rd, vec3(x, 1.07, z), vec3(0, 1, 0), 0.03, 0.1);
 
-    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+    Hit res      = findClosestHit(hits);
+    Material mat = materialRed;
+
+    return HitInfo(res, -rd, mat, false);
 }
 
 HitInfo intersectQueen(vec3 ro, vec3 rd, float x, float z, int color)
 {
+    if (!boxIntersectionFast(ro, rd, vec3(x, 0.52, z), vec3(0.3, 0.52, 0.3))) {
+        return HitInfo(NO_HIT, -rd, materialRed, false);
+    }
+
     Hit hits[5];
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0, z), vec3(0, 1, 0), 0.3, 0.1);
     hits[1] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.6);
     hits[2] = intersectSphere(ro, rd, vec3(x, 0.8, z), 0.15);
-    hits[3] = intersectCappedCylinder(ro, rd, vec3(x, 0.8, z), vec3(0,1,0), 0.15, 0.2);
+    hits[3] = intersectCappedCylinder(ro, rd, vec3(x, 0.8, z), vec3(0, 1, 0), 0.15, 0.2);
     hits[4] = intersectSphere(ro, rd, vec3(x, 1, z), 0.04);
-    // hits[4] = intersectUpperCappedCylinder(ro, rd, vec3(x, 1, z), vec3(0, 1, 0), 0.03, 0.1);
 
-    return HitInfo(findClosestHit(hits), -rd, materialRed, false);
+    Hit res      = findClosestHit(hits);
+    Material mat = materialRed;
+
+    return HitInfo(res, -rd, mat, false);
 }
 
 
@@ -502,7 +558,7 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         material.color = newColor.xyz;
     }
 
-    HitInfo figureHit = intersectFigure(ro, rd, FIGURE_PAWN, COLOR_WHITE, x, z);
+    HitInfo figureHit = intersectFigure(ro, rd, FIGURE_QUEEN, COLOR_WHITE, x, z);
 
     if (figureHit.hit.t > EPSILON && figureHit.hit.t < result.t || result.t < EPSILON) {
         return figureHit;
@@ -814,20 +870,21 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             currentRd = refract(currentRd, currentHit.hit.normal, n); // lrd
             currentRo = pos + 0.0001 * -currentHit.hit.normal;
 
-            if (refr < 0.0001)
+            if (refr < 0.0001 || refr_shadow > 0.99)
                 break;
         }
-
+        refr_shadow = clamp(refr_shadow, 0., 1.);
         accum += refr_accum * transmission_coef + refl_accum * reflection_coef * refl_shadow * dinv;
         // accum *= primaryShadow;
 
         fSpecDiff = vec4(accum, 1);
+        // fSpecDiff.z = refr_shadow;
         // fSpecDiff = vec4(refl_shadow, 0, 0, 1);
         // fSpecDiff = vec4(refl_accum,1.);
         fAmbient = vec4(primaryColor * vec3(0.1), 1);
 
         // fSpecDiff = max(fSpecDiff, fAmbient);
-        fShadow = primaryShadow + refr_shadow;
+        fShadow = primaryShadow;
         // fShadow =  primaryShadow;
 
     } else {
