@@ -1,7 +1,8 @@
 #version 460
-layout(location = 0) out float fShadow;
-layout(location = 1) out vec4 fSpecDiff;
+layout(location = 0) out vec3 fShadow;
+layout(location = 1) out vec4 fReflection;
 layout(location = 2) out vec4 fAmbient;
+layout(location = 3) out vec4 fRefraction;
 
 in vec4 gl_FragCoord;
 uniform samplerCube skybox;
@@ -68,35 +69,13 @@ uniform float roughness    = 0.68;
 uniform float transparency = 0.5;
 uniform float density      = 0.8;
 uniform int chessBoard[8*8*2];
-//  = {
-//         {{FIGURE_ROOK, COLOR_WHITE}, {FIGURE_KNIGHT, COLOR_WHITE}, {FIGURE_BISHOP, COLOR_WHITE}, {FIGURE_QUEEN, COLOR_WHITE}, {FIGURE_KING, COLOR_WHITE}, {FIGURE_BISHOP, COLOR_WHITE}, {FIGURE_KNIGHT, COLOR_WHITE}, {FIGURE_ROOK, COLOR_WHITE}},
-//         {{FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}, {FIGURE_PAWN, COLOR_WHITE}},
-//         {{FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}},
-//         {{FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}},
-//         {{FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}},
-//         {{FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}, {FIGURE_EMPTY, COLOR_NONE}},
-//         {{FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}, {FIGURE_PAWN, COLOR_BLACK}},
-//         {{FIGURE_ROOK, COLOR_BLACK}, {FIGURE_KNIGHT, COLOR_BLACK}, {FIGURE_BISHOP, COLOR_BLACK}, {FIGURE_QUEEN, COLOR_BLACK}, {FIGURE_KING, COLOR_BLACK}, {FIGURE_BISHOP, COLOR_BLACK}, {FIGURE_KNIGHT, COLOR_BLACK}, {FIGURE_ROOK, COLOR_BLACK}}
-//     };
-//  = {
-    
-//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
-//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
-//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
-//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
-//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
-//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
-//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
-//         {{ FIGURE_ROOK, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_QUEEN, COLOR_WHITE }, { FIGURE_KING, COLOR_WHITE }, { FIGURE_BISHOP, COLOR_WHITE }, { FIGURE_KNIGHT, COLOR_WHITE }, { FIGURE_ROOK, COLOR_WHITE } },
-    
-// };
 
 Material materialRed   = Material(vec3(1, 0, 0), n, roughness, transparency, density);
 Material materialGreen = Material(vec3(0, 1, 0), 1.4, roughness, transparency, density);
 Material materialBlue  = Material(vec3(0, 0, 1), 2.5, roughness, transparency, density);
-Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, 0., 1.);
+Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, 0., 0.2);
 Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, 0., 1.);
-Material materialBlack = Material(vec3(0, 0, 0), 1., roughness, 0., 1.);
+Material materialBlack = Material(vec3(0, 0, 0), 1.8, roughness, 0., 0.2);
 
 Material materials[4] = { 
     materialRed, 
@@ -792,9 +771,9 @@ void whatColorIsThere(vec3 ro, vec3 rd)
     Hit hit         = hitInfo.hit;
 
     if (hitInfo.isLight) {
-        fSpecDiff = vec4(materials[hitInfo.materialId].color, 1);
+        fReflection = vec4(materials[hitInfo.materialId].color, 1);
         fAmbient  = vec4(materials[hitInfo.materialId].color, 1);
-        fShadow   = 0.;
+        fShadow   = vec3(0.);
         return;
     }
 
@@ -847,23 +826,30 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         reflection_coef = 1 - transmission_coef;
 
         vec3 refl_accum   = vec3(0);
-        float refl_shadow = 1;
+        float refl_shadow = 0.;
         vec3 pos          = primaryPos;
         // handle reflections
         for (int k = 1; k < 4; ++k) {
+
             refl *= 1. - material.density;
             if (refl < 0.01)
                 break;
 
             currentHit = traceRay(currentRo, currentRd);
-            Material material = materials[currentHit.materialId];
-            if (currentHit.hit.t < EPSILON)
+            material = materials[currentHit.materialId];
+            if (currentHit.hit.t < EPSILON){
                 refl_accum += texture(skybox, currentRd).xyz * refl;
                 break;
+            }
 
 
             pos = currentRo + currentHit.hit.t * currentRd;
-            refl_shadow *= calculateShadowHard(pos);
+            if (!currentHit.hit.inside) {
+                refl_shadow += calculateShadow(pos);
+            }
+            if (refl_shadow > 0.99) {
+                break;
+            }
 
             vec3 color = shade(currentHit, pos, -rd);
 
@@ -896,21 +882,17 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 refr_accum   = vec3(0);
         float refr_shadow = 0;
-        for (int k = 1; k < 12; ++k) {
+        for (int k = 1; k < 8; ++k) {
             if (refr < 0.0001 || refr_shadow > 0.99)
                 break;
 
             currentHit = traceRay(currentRo, currentRd);
             material = materials[currentHit.materialId];
-            bool miss = currentHit.hit.t < EPSILON;
-            if (miss) {
-                refr_accum += texture(skybox, currentRd).xyz * refr;
-            }
 
-            if (miss)
-                // refr_accum += texture(skybox, currentRd).xyz * refr;
-                // refr_accum = vec3(0,1,0);
+            if (currentHit.hit.t < EPSILON) {
+                refr_accum += texture(skybox, currentRd).xyz * refr;
                 break;
+            }
 
             pos = currentRo + currentHit.hit.t * currentRd;
             if (!currentHit.hit.inside) {
@@ -933,23 +915,17 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         }
         refr_shadow = clamp(refr_shadow, 0., 1.);
-        accum += refr_accum * transmission_coef * (1 - refr_shadow) + refl_accum * reflection_coef * refl_shadow * dinv;
-        // accum *= primaryShadow;
 
-        fSpecDiff = vec4(accum, 1);
-        // fSpecDiff.z = refr_shadow;
-        // fSpecDiff = vec4(refl_shadow, 0, 0, 1);
-        // fSpecDiff = vec4(refl_accum,1.);
+        fReflection = vec4(accum + refl_accum * reflection_coef * dinv, 1);
+        fRefraction = vec4(refr_accum * transmission_coef, 1);
         fAmbient = vec4(primaryColor * vec3(0.1), 1);
 
-        // fSpecDiff = max(fSpecDiff, fAmbient);
-        fShadow = primaryShadow;
-        // fShadow =  primaryShadow;
-
+        fShadow = vec3(primaryShadow, refl_shadow, refr_shadow);
     } else {
-        fSpecDiff = vec4(texture(skybox, rd).rgb, 1.0);
-        fAmbient  = vec4(0, 0, 0, 1);
-        fShadow   = 0;
+        fReflection = vec4(0);
+        fRefraction = vec4(0);
+        fAmbient  = vec4(texture(skybox, rd).rgb, 1.0);
+        fShadow   = vec3(0);
     }
 }
 

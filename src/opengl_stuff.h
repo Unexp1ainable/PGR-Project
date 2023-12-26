@@ -42,7 +42,8 @@ private:
     GLuint m_showTexturePrg;
     GLuint m_fbo;
     GLuint m_shadowTexture;
-    GLuint m_specDiffTexture;
+    GLuint m_reflectionTexture;
+    GLuint m_refractionTexture;
     GLuint m_ambientTexture;
     GLuint m_skybox;
 

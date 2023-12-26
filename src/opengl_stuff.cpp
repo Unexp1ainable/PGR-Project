@@ -136,14 +136,14 @@ void OpenGLContext::createGBuffer()
     glGenTextures(1, &m_shadowTexture);
     glBindTexture(GL_TEXTURE_2D, m_shadowTexture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_shadowTexture, 0);
 
-    glGenTextures(1, &m_specDiffTexture);
-    glBindTexture(GL_TEXTURE_2D, m_specDiffTexture);
+    glGenTextures(1, &m_reflectionTexture);
+    glBindTexture(GL_TEXTURE_2D, m_reflectionTexture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, m_specDiffTexture, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, m_reflectionTexture, 0);
 
     glGenTextures(1, &m_ambientTexture);
     glBindTexture(GL_TEXTURE_2D, m_ambientTexture);
@@ -151,8 +151,14 @@ void OpenGLContext::createGBuffer()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, m_ambientTexture, 0);
 
-    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
-    glDrawBuffers(3, drawBuffers);
+    glGenTextures(1, &m_refractionTexture);
+    glBindTexture(GL_TEXTURE_2D, m_refractionTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, m_refractionTexture, 0);
+
+    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+    glDrawBuffers(4, drawBuffers);
 
     auto status = glCheckNamedFramebufferStatus(m_fbo, GL_FRAMEBUFFER);
     if (glCheckNamedFramebufferStatus(m_fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -229,9 +235,9 @@ void OpenGLContext::useRenderProgram() const
     glBindVertexArray(m_vao);
     glUseProgram(m_renderPrg);
 
-    glActiveTexture(GL_TEXTURE3);
+    glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_skybox);
-    glUniform1i(glGetUniformLocation(m_renderPrg, "skybox"), 3);
+    glUniform1i(glGetUniformLocation(m_renderPrg, "skybox"), 4);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
     glBindVertexArray(0);
@@ -246,9 +252,9 @@ void OpenGLContext::showTexture(bool significantChange)
 
     // Bind the texture to texture unit 0
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_specDiffTexture);
+    glBindTexture(GL_TEXTURE_2D, m_reflectionTexture);
     // Bind the shader program and set the texture uniform
-    glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureSpecDiff"), 0);
+    glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureReflection"), 0);
 
     // Bind the texture to texture unit 1
     glActiveTexture(GL_TEXTURE1);
@@ -262,12 +268,18 @@ void OpenGLContext::showTexture(bool significantChange)
     // Bind the shader program and set the texture uniform
     glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureShadows"), 2);
 
+    // Bind the texture to texture unit 3
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, m_refractionTexture);
+    // Bind the shader program and set the texture uniform
+    glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureRefraction"), 3);
+
 
     if (!significantChange) {
         if (std::chrono::high_resolution_clock::now() - m_lastTime > std::chrono::milliseconds(100)) {
             glEnable(GL_BLEND);
             glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
-            glBlendColor(1.0f, 1.0f, 1.0f, 0.1);
+            glBlendColor(1.0f, 1.0f, 1.0f, 0.2);
         }
     } else {
         m_lastTime = std::chrono::high_resolution_clock::now();
