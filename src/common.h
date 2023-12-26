@@ -28,7 +28,7 @@ public:
     {
     }
 
-    void syncUniforms(UniformStore const& store);
+    bool syncUniforms(UniformStore const& store);
     void syncUniformsForce(UniformStore const& store);
 
 private:

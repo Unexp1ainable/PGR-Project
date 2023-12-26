@@ -6,6 +6,7 @@ uniform sampler2D textureShadows;
 
 out vec4 FragColor;
 
+uniform uint accumCounter = 1;
 float sigmaS = 3;
 float sigmaL = 3;
 
@@ -62,6 +63,7 @@ void blend()
     vec4 ambient = texture(textureAmbient, texCoord);
     vec4 specularDiffuse = texture(textureSpecDiff, texCoord);
     FragColor = ambient + specularDiffuse * shadow;
+    // FragColor.a = 1./(accumCounter);
 }
 
 

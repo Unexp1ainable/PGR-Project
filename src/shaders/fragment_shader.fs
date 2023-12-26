@@ -63,7 +63,6 @@ uniform int shadowRays        = 1;
 uniform vec3 lightPosition    = vec3(0, 4, 0);
 uniform float n               = 1.2;
 uniform uint time             = 42;
-uniform uint accumCounter = 1;
 
 uniform float roughness    = 0.68;
 uniform float transparency = 0.5;

@@ -3,6 +3,7 @@
 #include "generated/shaders/fragment_shader.h"
 #include "generated/shaders/show_texture.h"
 #include "generated/shaders/vertex_shader.h"
+#include <chrono>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
@@ -188,12 +189,8 @@ unsigned int loadCubemap(std::vector<std::string> faces)
 void OpenGLContext::createSkybox()
 {
     std::vector<std::string> textures_faces = {
-        "../resources/posx.jpg", 
-        "../resources/negx.jpg", 
-        "../resources/posy.jpg",
-        "../resources/negy.jpg", 
-        "../resources/posz.jpg", 
-        "../resources/negz.jpg",
+        "../resources/posx.jpg", "../resources/negx.jpg", "../resources/posy.jpg",
+        "../resources/negy.jpg", "../resources/posz.jpg", "../resources/negz.jpg",
     };
     m_skybox = loadCubemap(textures_faces);
 }
@@ -240,7 +237,7 @@ void OpenGLContext::useRenderProgram() const
     glBindVertexArray(0);
 }
 
-void OpenGLContext::showTexture()
+void OpenGLContext::showTexture(bool significantChange)
 {
     glUseProgram(m_showTexturePrg);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -266,7 +263,15 @@ void OpenGLContext::showTexture()
     glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureShadows"), 2);
 
 
-    glEnable(GL_BLEND); 
+    if (!significantChange) {
+        if (std::chrono::high_resolution_clock::now() - m_lastTime > std::chrono::milliseconds(100)) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
+            glBlendColor(1.0f, 1.0f, 1.0f, 0.1);
+        }
+    } else {
+        m_lastTime = std::chrono::high_resolution_clock::now();
+    }
 
 
     glBindVertexArray(m_vao);

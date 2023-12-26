@@ -5,6 +5,7 @@
 
 #include <string>
 #include <vector>
+#include <chrono>
 
 
 // rectangle through the whole screen
@@ -24,7 +25,7 @@ public:
 
     GLuint getFirstPassProgram() const { return m_renderPrg; }
     GLuint getSecondPassProgram() const { return m_showTexturePrg; }
-    void showTexture();
+    void showTexture(bool significantChange);
     // GLuint getVAO() const { return m_vao; }
 
 protected:
@@ -44,4 +45,6 @@ private:
     GLuint m_specDiffTexture;
     GLuint m_ambientTexture;
     GLuint m_skybox;
+
+    std::chrono::high_resolution_clock::time_point m_lastTime;
 };

@@ -121,7 +121,7 @@ void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
         uniforms.time = SDL_GetTicks();
 
         // Update the uniforms
-        synchronizer.syncUniforms(uniforms);
+        bool significantChange = synchronizer.syncUniforms(uniforms);
 
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
@@ -132,7 +132,7 @@ void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
         drawGui(uniforms, fps);
 
         oglCtx.useRenderProgram();
-        oglCtx.showTexture();
+        oglCtx.showTexture(significantChange);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
