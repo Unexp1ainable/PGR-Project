@@ -51,7 +51,7 @@ struct Hit {
 struct HitInfo {
     Hit hit;
     vec3 ed; // eye direction
-    Material material;
+    int materialId;
     bool isLight;
 };
 
@@ -91,19 +91,32 @@ uniform int chessBoard[8*8*2];
     
 // };
 
-Material materialRed   = Material(vec3(1, 0, 0), n, 0.1, 1., 0.);
+Material materialRed   = Material(vec3(1, 0, 0), n, roughness, transparency, density);
 Material materialGreen = Material(vec3(0, 1, 0), 1.4, roughness, transparency, density);
 Material materialBlue  = Material(vec3(0, 0, 1), 2.5, roughness, transparency, density);
 Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, 0., 1.);
 Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, 0., 1.);
+Material materialBlack = Material(vec3(0, 0, 0), 1., roughness, 0., 1.);
+
+Material materials[4] = { 
+    materialRed, 
+    materialGray, 
+    materialWhite,
+    materialBlack
+    };
+
+#define MATERIAL_RED   0
+#define MATERIAL_GRAY  1
+#define MATERIAL_WHITE 2
+#define MATERIAL_BLACK 3
 
 struct LightItem {
     vec3 position;
     float radius;
-    Material material;
+    int materialId;
 };
 
-LightItem light = LightItem(lightPosition, 0.5, Material(vec3(1, 1, 1), 1., roughness, 0., 1.));
+LightItem light = LightItem(lightPosition, 0.5, MATERIAL_WHITE);
 
 #define LIGHT_COUNT 1
 LightItem[LIGHT_COUNT] lights = {
@@ -388,10 +401,10 @@ FIND_CLOSEST_HIT_FN(4)
 FIND_CLOSEST_HIT_FN(5)
 FIND_CLOSEST_HIT_FN(6)
 
-HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
+Hit intersectPawn(vec3 ro, vec3 rd, float x, float z)
 {
     if (!boxIntersectionFast(ro, rd, vec3(x, 0.55, z), vec3(0.3, 0.55, 0.3))) {
-        return HitInfo(NO_HIT, -rd, materialRed, false);
+        return NO_HIT;
     }
 
     Hit hits[3];
@@ -399,20 +412,14 @@ HitInfo intersectPawn(vec3 ro, vec3 rd, float x, float z, int color)
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.0001, z), vec3(0, 1, 0), 0.3, 0.1);
     hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9);
     hits[2] = intersectSphere(ro, rd, vec3(x, 0.9, z), 0.2);
-    // hits[3] = boxIntersection(ro, rd, vec3(x, 0.55, z), vec3(0.3, 0.55, 0.3)); // bounding box
 
-    Hit res = findClosestHit(hits);
-    // Material mat = materialGray;
-    // if (res.t == hits[3].t) {
-    //     mat = materialRed;
-    // }
-    return HitInfo(res, -rd, materialRed, false);
+    return findClosestHit(hits);
 }
 
-HitInfo intersectRook(vec3 ro, vec3 rd, float x, float z, int color)
+Hit intersectRook(vec3 ro, vec3 rd, float x, float z)
 {
     if (!boxIntersectionFast(ro, rd, vec3(x, 0.4, z), vec3(0.4, 0.4, 0.4))) {
-        return HitInfo(NO_HIT, -rd, materialRed, false);
+        return NO_HIT;
     }
 
 
@@ -421,21 +428,16 @@ HitInfo intersectRook(vec3 ro, vec3 rd, float x, float z, int color)
     hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.32, 0.17);
     hits[2] = intersectCappedCylinder(ro, rd, vec3(x, 0.17, z), vec3(0, 1, 0), 0.2, 0.6);
     hits[3] = intersectCappedCylinder(ro, rd, vec3(x, 0.6, z), vec3(0, 1, 0), 0.25, 0.171);
-    // hits[4] = boxIntersection(ro, rd, vec3(x, 0.4, z), vec3(0.4, 0.4, 0.4)); // bounding box
 
-    Hit res      = findClosestHit(hits);
-    Material mat = materialRed;
-
-    return HitInfo(res, -rd, mat, false);
+    return findClosestHit(hits);
 }
 
-HitInfo intersectKnight(vec3 ro, vec3 rd, float x, float z, int color)
+Hit intersectKnight(vec3 ro, vec3 rd, float x, float z, int color)
 {
-    color   = COLOR_BLACK;
-    float r = color == COLOR_WHITE ? 1. : -1;
+    float r = color != COLOR_WHITE ? 1. : -1;
 
     if (!boxIntersectionFast(ro, rd, vec3(x, 0.4, z + 0.05 * r), vec3(0.3, 0.5, 0.35))) {
-        return HitInfo(NO_HIT, -rd, materialRed, false);
+        return NO_HIT;
     }
 
     Hit hits[5];
@@ -445,16 +447,13 @@ HitInfo intersectKnight(vec3 ro, vec3 rd, float x, float z, int color)
     hits[3] = intersectCappedCylinder(ro, rd, vec3(x, 0.5, z - 0.2 * r), normalize(vec3(0, 0.5, 1 * r)), 0.1, 0.3);
     hits[4] = intersectSphere(ro, rd, vec3(x, 0.7, z + 0.2 * r), 0.2);
 
-    Hit res      = findClosestHit(hits);
-    Material mat = materialRed;
-
-    return HitInfo(res, -rd, mat, false);
+    return findClosestHit(hits);
 }
 
-HitInfo intersectBishop(vec3 ro, vec3 rd, float x, float z, int color)
+Hit intersectBishop(vec3 ro, vec3 rd, float x, float z)
 {
     if (!boxIntersectionFast(ro, rd, vec3(x, 0.4751, z), vec3(0.3, 0.4751, 0.3))) {
-        return HitInfo(NO_HIT, -rd, materialRed, false);
+        return NO_HIT;
     }
 
     Hit hits[4];
@@ -463,15 +462,13 @@ HitInfo intersectBishop(vec3 ro, vec3 rd, float x, float z, int color)
     hits[2] = intersectSphere(ro, rd, vec3(x, 0.7, z), 0.2);
     hits[3] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.85, z), vec3(0, 1, 0), 0.05, 0.1);
 
-    Hit res      = findClosestHit(hits);
-    Material mat = materialRed;
-    return HitInfo(res, -rd, mat, false);
+    return findClosestHit(hits);
 }
 
-HitInfo intersectKing(vec3 ro, vec3 rd, float x, float z, int color)
+Hit intersectKing(vec3 ro, vec3 rd, float x, float z)
 {
     if (!boxIntersectionFast(ro, rd, vec3(x, 0.6, z), vec3(0.3, 0.6, 0.3))) {
-        return HitInfo(NO_HIT, -rd, materialRed, false);
+        return NO_HIT;
     }
 
     Hit hits[5];
@@ -481,16 +478,13 @@ HitInfo intersectKing(vec3 ro, vec3 rd, float x, float z, int color)
     hits[3] = intersectSphere(ro, rd, vec3(x, 1., z), 0.1);
     hits[4] = intersectUpperCappedCylinder(ro, rd, vec3(x, 1.07, z), vec3(0, 1, 0), 0.03, 0.1);
 
-    Hit res      = findClosestHit(hits);
-    Material mat = materialRed;
-
-    return HitInfo(res, -rd, mat, false);
+    return findClosestHit(hits);
 }
 
-HitInfo intersectQueen(vec3 ro, vec3 rd, float x, float z, int color)
+Hit intersectQueen(vec3 ro, vec3 rd, float x, float z)
 {
     if (!boxIntersectionFast(ro, rd, vec3(x, 0.52, z), vec3(0.3, 0.52, 0.3))) {
-        return HitInfo(NO_HIT, -rd, materialRed, false);
+        return NO_HIT;
     }
 
     Hit hits[5];
@@ -500,37 +494,36 @@ HitInfo intersectQueen(vec3 ro, vec3 rd, float x, float z, int color)
     hits[3] = intersectCappedCylinder(ro, rd, vec3(x, 0.8, z), vec3(0, 1, 0), 0.15, 0.2);
     hits[4] = intersectSphere(ro, rd, vec3(x, 1, z), 0.04);
 
-    Hit res      = findClosestHit(hits);
-    Material mat = materialRed;
-
-    return HitInfo(res, -rd, mat, false);
+    return findClosestHit(hits);
 }
 
 
-HitInfo intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float z)
+Hit intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float z)
 {
     switch (figure_type) {
         case FIGURE_PAWN: {
-            return intersectPawn(ro, rd, x, z, color);
+            return intersectPawn(ro, rd, x, z);
         }
         case FIGURE_ROOK: {
-            return intersectRook(ro, rd, x, z, color);
+            return intersectRook(ro, rd, x, z);
         }
         case FIGURE_KNIGHT: {
             return intersectKnight(ro, rd, x, z, color);
         }
         case FIGURE_BISHOP: {
-            return intersectBishop(ro, rd, x, z, color);
+            return intersectBishop(ro, rd, x, z);
         }
         case FIGURE_KING: {
-            return intersectKing(ro, rd, x, z, color);
+            return intersectKing(ro, rd, x, z);
         }
         case FIGURE_QUEEN: {
-            return intersectQueen(ro, rd, x, z, color);
+            return intersectQueen(ro, rd, x, z);
         }
         default:
-            return HitInfo(NO_HIT, -rd, materialRed, false);
+            return NO_HIT;
     }
+
+    return NO_HIT;
 }
 
 HitInfo intersectFigures(vec3 ro, vec3 rd)
@@ -538,7 +531,8 @@ HitInfo intersectFigures(vec3 ro, vec3 rd)
     // return intersectFigure(ro, rd, FIGURE_BISHOP, COLOR_WHITE, 0, 0);
     // return intersectBishop(ro, rd, 0, 0, 0);
     float min_t    = 1000000;
-    HitInfo result = HitInfo(NO_HIT, -rd, materialRed, false);
+    Hit result = NO_HIT;
+    int matId = 0;
 
     for (int row = 0; row < 8; row++) {
         for (int col = 0; col < 8; col++) {
@@ -546,15 +540,16 @@ HitInfo intersectFigures(vec3 ro, vec3 rd)
             int color       = chessBoard[(row*8 + col)*2+1];
             float x         = col - 4;
             float z         = row - 4;
-            HitInfo hitInfo = intersectFigure(ro, rd, figure_type, color, x, z);
-            if (hitInfo.hit.t > EPSILON && hitInfo.hit.t < min_t) {
-                min_t  = hitInfo.hit.t;
-                result = hitInfo;
+            Hit hit = intersectFigure(ro, rd, figure_type, color, x, z);
+            if (hit.t > EPSILON && hit.t < min_t) {
+                min_t  = hit.t;
+                result = hit;
+                matId = color == COLOR_WHITE ? MATERIAL_RED : MATERIAL_GRAY;
             }
         }
     }
 
-    return result;
+    return HitInfo(result, -rd, matId, false);
 }
 
 HitInfo traceRay(vec3 ro, vec3 rd)
@@ -569,16 +564,16 @@ HitInfo traceRay(vec3 ro, vec3 rd)
     hits[0] = intersectSphere(ro, rd, light.position, light.radius);
     hits[1] = intersectPlane(ro, rd, vec3(-0.5, 0, -0.5), vec3(0, 1, 0), vec3(1, 0, 0), 4);
 
-    Material materials[itemCount];
-    materials[0] = materialWhite;
-    materials[1] = materialGray;
+    int materials[itemCount];
+    materials[0] = MATERIAL_WHITE;
+    materials[1] = MATERIAL_GRAY;
 
     bool isLights[itemCount];
     isLights[0] = true;
     isLights[1] = false;
 
     Hit result = NO_HIT;
-    Material material;
+    int matId;
     bool isLight = false;
 
     float min_t  = 1000000;
@@ -592,19 +587,18 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         if (hits[i].t < min_t) {
             min_t    = hits[i].t;
             result   = hits[i];
-            material = materials[i];
+            matId = materials[i];
             isLight  = isLights[i];
             hitIndex = i;
         }
     }
 
     if (hitIndex == itemCount - 1) {
-        vec4 newColor = vec4(0, 0, 0, 1);
+        matId = MATERIAL_WHITE;
         vec3 pos      = ro + rd * result.t;
         if (int(floor(pos.x + 0.5)) % 2 == int(floor(pos.z + 0.5)) % 2) {
-            newColor = vec4(1, 1, 1, 1);
+            matId = MATERIAL_BLACK;
         }
-        material.color = newColor.xyz;
     }
 
     HitInfo figureHit = intersectFigures(ro, rd);
@@ -613,7 +607,7 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         return figureHit;
     }
 
-    return HitInfo(result, -rd, material, isLight);
+    return HitInfo(result, -rd, matId, isLight);
 }
 
 // https://www.shadertoy.com/view/XsXXDB
@@ -625,7 +619,7 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, LightItem light)
 
     vec3 res = vec3(0.);
     vec3 ld  = normalize(light.position - pos);
-    res      = hitInfo.material.color * diffuse * dot(n, ld);
+    res      = materials[hitInfo.materialId].color * diffuse * dot(n, ld);
     vec3 h   = normalize(hitInfo.ed + ld);
     res += specular * pow(dot(n, h), 16.);
     res = clamp(res, 0., 1.);
@@ -636,8 +630,8 @@ vec3 shadeBlinnPhong(HitInfo hitInfo, vec3 pos, LightItem light)
 // https://www.shadertoy.com/view/XsXXDB
 vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, LightItem light)
 {
-    float roughness = hitInfo.material.roughness;
-    float K         = hitInfo.material.density;
+    float roughness = materials[hitInfo.materialId].roughness;
+    float K         = materials[hitInfo.materialId].density;
     //
     vec3 ld     = normalize(light.position - pos);
     vec3 h      = normalize(hitInfo.ed + ld);
@@ -660,7 +654,7 @@ vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, LightItem light)
     float rough = r1 * exp(r2);
 
     // Fresnel
-    float n = hitInfo.material.n;
+    float n = materials[hitInfo.materialId].n;
     // Schlick's approximation
     float F0   = pow(n - 1., 2) / pow(n + 1., 2);
     float fres = pow(1.0 - VdotH, 5.);
@@ -668,7 +662,7 @@ vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, LightItem light)
     fres += F0;
 
     vec3 spec = (NdotV * NdotL == 0.) ? vec3(0.) : vec3(fres * geo * rough) / (NdotV * NdotL);
-    vec3 res  = NdotL * ((1. - K) * spec + K * hitInfo.material.color) * light.material.color;
+    vec3 res  = NdotL * ((1. - K) * spec + K * materials[hitInfo.materialId].color) * materials[hitInfo.materialId].color;
 
     return res;
 }
@@ -682,7 +676,7 @@ vec3 shade(HitInfo hitInfo, vec3 pos)
         LightItem light = lights[light_i];
         // vec3 color = shadeBlinnPhong(hitInfo, light);
         if (hitInfo.isLight) {
-            return hitInfo.material.color;
+            return materials[hitInfo.materialId].color;
         }
 
         vec3 color = shadeCookTorrance(hitInfo, pos, light);
@@ -796,8 +790,8 @@ void whatColorIsThere(vec3 ro, vec3 rd)
     Hit hit         = hitInfo.hit;
 
     if (hitInfo.isLight) {
-        fSpecDiff = vec4(hitInfo.material.color, 1);
-        fAmbient  = vec4(hitInfo.material.color, 1);
+        fSpecDiff = vec4(materials[hitInfo.materialId].color, 1);
+        fAmbient  = vec4(materials[hitInfo.materialId].color, 1);
         fShadow   = 0.;
         return;
     }
@@ -805,29 +799,31 @@ void whatColorIsThere(vec3 ro, vec3 rd)
     if (hit.t > EPSILON) {
         vec3 primaryPos = ro + rd * hit.t;
 
+        Material primaryMaterial = materials[hitInfo.materialId];
         float primaryShadow = calculateShadow(primaryPos + hit.normal * 0.001);
-        primaryShadow *= 1 - hitInfo.material.transparency;
+        primaryShadow *= 1 - primaryMaterial.transparency;
 
         vec3 color        = shade(hitInfo, primaryPos);
-        vec3 primaryColor = hitInfo.material.color;
+        vec3 primaryColor = primaryMaterial.color;
 
         HitInfo currentHit = hitInfo;
+        Material material = materials[currentHit.materialId];
         vec3 currentRo     = primaryPos;
         vec3 currentRd     = reflect(rd, currentHit.hit.normal);
         currentRo += 0.0001 * currentRd;
         float refl = 1;
-        float d    = currentHit.material.density;
+        float d    = material.density;
         float dinv = 1. - d;
-        float t    = currentHit.material.transparency;
+        float t    = material.transparency;
         float tinv = 1. - t;
         vec3 accum = color * d * tinv;
 
         float n1, n2;
         if (!hitInfo.hit.inside) {
             n1 = 1.;
-            n2 = hitInfo.material.n;
+            n2 = primaryMaterial.n;
         } else {
-            n1 = hitInfo.material.n;
+            n1 = primaryMaterial.n;
             n2 = 1.;
         }
 
@@ -853,13 +849,15 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         vec3 pos          = primaryPos;
         // handle reflections
         for (int k = 1; k < 4; ++k) {
-            refl *= 1. - currentHit.material.density;
+            refl *= 1. - material.density;
             if (refl < 0.01)
                 break;
 
             currentHit = traceRay(currentRo, currentRd);
+            Material material = materials[currentHit.materialId];
             if (currentHit.hit.t < EPSILON)
                 break;
+
 
             pos = currentRo + currentHit.hit.t * currentRd;
             refl_shadow *= calculateShadowHard(pos);
@@ -879,9 +877,9 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         float n;
         if (hitInfo.hit.inside) {
-            n = hitInfo.material.n;
+            n = primaryMaterial.n;
         } else {
-            n = 1. / hitInfo.material.n;
+            n = 1. / primaryMaterial.n;
         }
 
         currentRd = refract(rd, currentHit.hit.normal, n); // lrd
@@ -890,27 +888,28 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         float[20] refr_stack;
         refr_stack[0]   = 1.;
-        refr_stack[1]   = currentHit.material.n;
+        refr_stack[1]   = primaryMaterial.n;
         int stack_index = currentHit.hit.inside ? 0 : 1;
 
         vec3 refr_accum   = vec3(0);
         float refr_shadow = 0;
         for (int k = 1; k < 6; ++k) {
-            refr *= currentHit.material.transparency;
+            refr *= material.transparency;
             currentHit = traceRay(currentRo, currentRd);
+            material = materials[currentHit.materialId];
             if (currentHit.hit.t < EPSILON)
                 break;
 
             pos = currentRo + currentHit.hit.t * currentRd;
             if (!currentHit.hit.inside) {
-                refr_shadow += calculateShadow(pos) * (1 - currentHit.material.transparency);
-                n = refr_stack[stack_index] / currentHit.material.n;
+                refr_shadow += calculateShadow(pos) * (1 - material.transparency);
+                n = refr_stack[stack_index] / material.n;
                 stack_index++;
-                refr_stack[stack_index] = currentHit.material.n;
+                refr_stack[stack_index] = material.n;
             } else {
                 stack_index--;
                 stack_index = max(stack_index, 0);
-                n           = currentHit.material.n / refr_stack[stack_index];
+                n           = material.n / refr_stack[stack_index];
             }
 
             vec3 color = shade(currentHit, pos);
