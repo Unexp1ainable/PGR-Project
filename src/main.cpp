@@ -101,9 +101,9 @@ void processInput(bool& running, FreeLookCamera& camera, UniformStore& uniforms)
     uniforms.cameraMatrix = glm::inverse(camera.getView());
 }
 
-void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
+void mainloop(SDL_Window* window, OpenGLContext& oglCtx, const std::string& chessConfig)
 {
-    UniformStore uniforms;
+    UniformStore uniforms(chessConfig);
     UniformSynchronizer synchronizer(oglCtx.getFirstPassProgram(), oglCtx.getSecondPassProgram());
     FreeLookCamera camera {};
     bool running = true;
@@ -143,6 +143,19 @@ void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
 
 int main(int argc, char* argv[])
 {
+    std::string chessConfig;
+    if (argc > 1) {
+        chessConfig = argv[1];
+    }
+
+    if (chessConfig == "-h" || chessConfig == "--help") {
+        std::cout << "Usage: " << argv[0] << " chessboard_config\n";
+        std::cout << "Chessboard config can be one of:\n";
+        std::cout << "\t start\n\t random1\n\t random2\n";
+        std::cout << "If no config is given, \"start\" is used.\n";
+        return 0;
+    }
+
     ge::gl::init();
 
     auto sdlGuard = SDL_Guard();
@@ -150,10 +163,9 @@ int main(int argc, char* argv[])
     auto context  = sdlGuard.getContext();
 
     auto imGuiGuard = ImGui_Guard(window, context);
-
     auto openglContext = OpenGLContext();
 
-    mainloop(window, openglContext);
+    mainloop(window, openglContext, chessConfig);
 
     return 0;
 }

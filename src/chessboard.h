@@ -2,6 +2,7 @@
 #include <cstring>
 #include <geGL/Generated/OpenGLTypes.h>
 #include <glm/glm.hpp>
+#include <string>
 
 
 namespace chessboard {
@@ -32,6 +33,29 @@ namespace chessboard {
         ROOK, BLACK, KNIGHT, BLACK, BISHOP, BLACK, QUEEN, BLACK, KING, BLACK, BISHOP, BLACK, KNIGHT, BLACK, ROOK, BLACK
     };
 
+    
+    const glm::int32_t gameConfig1[8*8*2] = {
+        PAWN, WHITE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE,
+        EMPTY, NONE, PAWN, WHITE, EMPTY, NONE, EMPTY, BLACK, KING, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE,
+        EMPTY, NONE, EMPTY, NONE, PAWN, WHITE, EMPTY, NONE, EMPTY, BLACK, ROOK, EMPTY, NONE, EMPTY, NONE,
+        QUEEN, BLACK, EMPTY, NONE, EMPTY, NONE, PAWN, WHITE, EMPTY, NONE, PAWN, BLACK, ROOK, WHITE, EMPTY, NONE,
+        EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE,
+        EMPTY, NONE, EMPTY, NONE, BISHOP, BLACK, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE,
+        EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, KNIGHT, WHITE, NONE, EMPTY, NONE, EMPTY, NONE,
+        EMPTY, NONE, KING, WHITE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE,
+    };
+    
+        const glm::int32_t gameConfig2[8*8*2] = {
+        PAWN, WHITE, EMPTY, NONE, BISHOP, BLACK, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE,
+        EMPTY, NONE, PAWN, WHITE, EMPTY, NONE, EMPTY, BLACK, KING, EMPTY, NONE, BISHOP, BLACK, PAWN, BLACK,
+        EMPTY, NONE, EMPTY, NONE, PAWN, WHITE, EMPTY, NONE, EMPTY, BLACK, ROOK, EMPTY, NONE, EMPTY, NONE,
+        QUEEN, BLACK, PAWN, BLACK, EMPTY, NONE, PAWN, WHITE, EMPTY, NONE, PAWN, BLACK, ROOK, WHITE, EMPTY, NONE,
+        EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, PAWN, BLACK, EMPTY, NONE, EMPTY, NONE,
+        KNIGHT, WHITE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE,
+        PAWN, BLACK, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, KNIGHT, WHITE, NONE, EMPTY, NONE, EMPTY, NONE,
+        EMPTY, NONE, KING, WHITE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE, EMPTY, NONE,
+    };
+
 
     /**
      * @brief Represents a configuration of a chessboard.
@@ -41,7 +65,7 @@ namespace chessboard {
      */
     class Configuration {
     public:
-        Configuration();
+        Configuration(const std::string& config = "start");
         Configuration(const Configuration& other);
 
         const GLint* data() const { return &m_board[0]; }

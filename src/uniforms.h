@@ -4,9 +4,13 @@
 #include <geGL/Generated/OpenGLTypes.h>
 #include <glm/fwd.hpp>
 #include <glm/glm.hpp>
+#include <string>
 
 class UniformStore {
 public:
+    UniformStore() = default;
+    UniformStore(const std::string config) : chessBoard(config) {}
+
     int screenWidth         = DEFAULT_WINDOW_WIDTH;
     int screenHeight        = DEFAULT_WINDOW_HEIGHT;
     glm::mat4 cameraMatrix  = glm::mat4(1.0f);
