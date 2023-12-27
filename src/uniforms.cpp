@@ -1,4 +1,4 @@
-#include "common.h"
+#include "uniforms.h"
 #include <geGL/StaticCalls.h>
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/gtc/type_ptr.hpp>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "uniforms.h"
 #include <SDL.h>
 
 class ImGui_Guard {

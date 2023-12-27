@@ -11,7 +11,7 @@
 #include "SDL_mouse.h"
 #include "SDL_scancode.h"
 #include "SDL_video.h"
-#include "common.h"
+#include "uniforms.h"
 #include "imgui_impl_opengl3.h"
 #include <SDL.h>
 #include <geGL/Generated/OpenGLConstants.h>
@@ -108,8 +108,11 @@ void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
     FreeLookCamera camera {};
     bool running = true;
 
+    // Setup time
     auto start = std::chrono::high_resolution_clock::now();
     auto end   = std::chrono::high_resolution_clock::now();
+    
+    // ensure that uniforms on gpu and cpu are the same
     synchronizer.syncUniformsForce(uniforms);
 
     while (running) {
@@ -126,11 +129,10 @@ void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
-
         drawGui(uniforms, fps);
 
-        oglCtx.useRenderProgram();
-        oglCtx.showTexture(significantChange);
+        oglCtx.useFirstPassProgram();
+        oglCtx.useSecondPassProgram(significantChange);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

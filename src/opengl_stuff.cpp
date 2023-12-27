@@ -31,6 +31,7 @@ std::string loadFile(std::string path)
     return buffer.str();
 }
 
+// https://gist.github.com/liam-middlebrook/c52b069e4be2d87a6d2f
 void GLDebugMessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* msg, const void* data)
 {
     std::string _source;
@@ -209,9 +210,11 @@ void OpenGLContext::createSkybox()
 
 OpenGLContext::OpenGLContext()
 {
+    #ifndef NDEBUG
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(GLDebugMessageCallback, NULL);
+    #endif
 
     std::string vSrc  = VERTEX_SHADER_SOURCE;
     std::string fSrc  = FRAGMENT_SHADER_SOURCE;
@@ -219,8 +222,8 @@ OpenGLContext::OpenGLContext()
 
     // TODO remove
     vSrc  = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/vertex_shader.vs");
-    fSrc  = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/fragment_shader.fs");
-    tfSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/show_texture.fs");
+    fSrc  = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/first_pass.fs");
+    tfSrc = loadFile("/mnt/d/VUT/MIT/3semester/PGR/projekt/src/shaders/second_pass.fs");
 
     auto vShader  = createShader(GL_VERTEX_SHADER, vSrc);
     auto fShader  = createShader(GL_FRAGMENT_SHADER, fSrc);
@@ -234,7 +237,7 @@ OpenGLContext::OpenGLContext()
     m_vao            = createVAO();
 }
 
-void OpenGLContext::useRenderProgram() const
+void OpenGLContext::useFirstPassProgram() const
 {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_fbo);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -249,7 +252,7 @@ void OpenGLContext::useRenderProgram() const
     glBindVertexArray(0);
 }
 
-void OpenGLContext::showTexture(bool significantChange)
+void OpenGLContext::useSecondPassProgram(bool significantChange)
 {
     glUseProgram(m_showTexturePrg);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);

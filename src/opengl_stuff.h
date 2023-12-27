@@ -21,12 +21,11 @@ class OpenGLContext {
 public:
     OpenGLContext();
 
-    void useRenderProgram() const;
-
     GLuint getFirstPassProgram() const { return m_renderPrg; }
     GLuint getSecondPassProgram() const { return m_showTexturePrg; }
-    void showTexture(bool significantChange);
-    // GLuint getVAO() const { return m_vao; }
+
+    void useFirstPassProgram() const;
+    void useSecondPassProgram(bool significantChange);
 
 protected:
     GLuint createShader(GLenum type, std::string const& src);
