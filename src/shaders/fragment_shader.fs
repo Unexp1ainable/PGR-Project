@@ -120,7 +120,6 @@ LightItem light = LightItem(lightPosition, 0.5, MATERIAL_WHITE);
 #define LIGHT_COUNT 1
 LightItem[LIGHT_COUNT] lights = {
     light,
-    // light2,
 };
 
 
@@ -508,7 +507,7 @@ Hit intersectQueen(vec3 ro, vec3 rd, float x, float z)
     return findClosestHit(hits);
 }
 
-
+// helper method for intersecting figures
 Hit intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float z)
 {
     switch (figure_type) {
@@ -537,6 +536,7 @@ Hit intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float
     return NO_HIT;
 }
 
+// iterate through the chessboard and intersect all figures
 HitInfo intersectFigures(vec3 ro, vec3 rd)
 {
     float min_t = 1000000;
@@ -680,6 +680,7 @@ vec3 shadeCookTorrance(HitInfo hitInfo, vec3 pos, vec3 ed, LightItem light)
     return res;
 }
 
+// use something to shade a sample
 vec3 shade(HitInfo hitInfo, vec3 pos, vec3 ed)
 {
     float frac     = 1. / float(LIGHT_COUNT);
@@ -709,7 +710,7 @@ float hash12(vec2 p)
     return fract((p3.x + p3.y) * p3.z);
 }
 
-
+// create a random sample inside of a unit circle
 vec2 randomSampleUnitCircle(vec2 st)
 {
     st.x += time;
@@ -721,26 +722,7 @@ vec2 randomSampleUnitCircle(vec2 st)
     return vec2(r, theta);
 }
 
-
-float radius(int i, int n, float b)
-{
-    if (i >= n - b) {
-        return 1;
-    } else {
-        return sqrt(float(i) / float(n - (b + 1) / 2));
-    }
-}
-
-
-vec2 sunflower(int n, int alpha, int i)
-{
-    float b     = round(alpha * sqrt(n));
-    float r     = radius(i, n, b);
-    float theta = 2 * PI * (i + 1) / pow(GOLDEN_RATIO, 2);
-    return vec2(r, theta);
-}
-
-
+// determine shadowing (supports soft shadows)
 float calculateShadow(vec3 pos)
 {
     float frac       = 1. / float(LIGHT_COUNT);
@@ -749,6 +731,7 @@ float calculateShadow(vec3 pos)
     for (int light_i = 0; light_i < LIGHT_COUNT; light_i++) {
         LightItem light = lights[light_i];
 
+        // prepare vectors determining the plane of the light
         vec3 lightDir      = normalize(light.position - pos);
         vec3 perpLightDir1 = normalize(cross(lightDir, vec3(lightDir.x + 1, lightDir.y + 1, lightDir.z - 1)));
         vec3 perpLightDir2 = normalize(cross(lightDir, perpLightDir1));
@@ -757,6 +740,7 @@ float calculateShadow(vec3 pos)
         float shadow = 0;
 
         for (int i = 0; i < shadowRays; i++) {
+            // generate shadow ray in the direction of the light, but with random offset (still should hit the light though)
             vec2 rsample = randomSampleUnitCircle(seed);
             float r      = rsample.x * light.radius;
             float theta  = rsample.y;
@@ -766,6 +750,7 @@ float calculateShadow(vec3 pos)
             vec3 offset = perpLightDir1 * x + perpLightDir2 * y;
             vec3 rayDir = normalize(light.position + offset - pos);
 
+            // hit or no hit
             HitInfo shadowHit = traceRay(pos + 0.001 * lightDir, rayDir);
             vec3 shadowHitPos = pos + shadowHit.hit.t * rayDir;
             bool res          = shadowHit.hit.t > EPSILON && shadowHit.hit.t < (length(light.position - shadowHitPos) - light.radius);
@@ -776,6 +761,8 @@ float calculateShadow(vec3 pos)
             vec2 pos = (gl_FragCoord.xy * v + 50.0);
             seed     = gl_FragCoord.xy * pos;
         }
+
+        // normalize result
         res_shadow += (shadow / float(shadowRays)) * frac;
     }
 
@@ -867,7 +854,6 @@ void whatColorIsThere(vec3 ro, vec3 rd)
                 break;
             }
 
-
             pos = currentRo + currentHit.hit.t * currentRd;
             if (!currentHit.hit.inside) {
                 refl_shadow += calculateShadow(pos);
@@ -938,6 +924,8 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             currentRo = pos + 0.0001 * -currentHit.hit.normal;
             refr *= material.transparency;
         }
+
+        // put it all together
         refr_shadow = clamp(refr_shadow, 0., 1.);
         refl_shadow = clamp(refl_shadow, 0., 1.);
 
@@ -948,6 +936,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         fShadow = vec3(primaryShadow, refl_shadow, refr_shadow);
     } else {
+        // if we didn't hit anything, just draw the skybox
         fReflection = vec4(0);
         fRefraction = vec4(0);
         fAmbient    = vec4(0);
