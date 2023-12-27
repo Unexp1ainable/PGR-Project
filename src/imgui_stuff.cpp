@@ -25,13 +25,29 @@ ImGui_Guard::~ImGui_Guard()
 
 void drawGui(UniformStore& store, float fps)
 {
-    ImGui::Begin("Info");
+    ImGui::Begin("Properties");
     ImGui::SeparatorText("Scene");
     ImGui::SliderFloat3("lightPos", glm::value_ptr(store.lightPosition), -100., 100.);
-    ImGui::SliderFloat("roughness", &store.roughness, 0., 1.);
-    ImGui::SliderFloat("transparency", &store.transparency, 0., 1.);
-    ImGui::SliderFloat("density", &store.density, 0., 1.);
-    ImGui::SliderFloat("n", &store.n, 1., 3.);
+    ImGui::InputInt("reflectionBounces", &store.reflectionBounces, 1, 1);
+    ImGui::InputInt("refractionBounces", &store.refractionBounces, 1, 1);
+    ImGui::InputInt("shadowRays", &store.shadowRays, 1, 1);
+
+    if (ImGui::CollapsingHeader("White material")) {
+        ImGui::ColorEdit3("whiteColor", glm::value_ptr(store.whiteColor));
+        ImGui::SliderFloat("whiteRoughness", &store.whiteRoughness, 0., 1.);
+        ImGui::SliderFloat("whiteTransparency", &store.whiteTransparency, 0., 1.);
+        ImGui::SliderFloat("whiteDensity", &store.whiteDensity, 0., 1.);
+        ImGui::SliderFloat("whiteN", &store.whiteN, 1., 3.);
+    }
+
+    if (ImGui::CollapsingHeader("Black material")) {
+        ImGui::SeparatorText("Black material");
+        ImGui::ColorEdit3("blackColor", glm::value_ptr(store.blackColor));
+        ImGui::SliderFloat("blackRoughness", &store.blackRoughness, 0., 1.);
+        ImGui::SliderFloat("blackTransparency", &store.blackTransparency, 0., 1.);
+        ImGui::SliderFloat("blackDensity", &store.blackDensity, 0., 1.);
+        ImGui::SliderFloat("blackN", &store.blackN, 1., 3.);
+    }
 
     ImGui::SeparatorText("Other");
     ImGui::Text("FPS: %f", fps);

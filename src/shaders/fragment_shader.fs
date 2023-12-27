@@ -26,7 +26,6 @@ struct Hit {
 };
 
 
-
 struct HitInfo {
     Hit hit;
     int materialId;
@@ -48,33 +47,37 @@ uniform int screenWidth       = 1024;
 uniform int screenHeight      = 768;
 uniform mat4 cameraMatrix     = mat4(1.0);
 uniform int reflectionBounces = 3;
+uniform int refractionBounces = 3;
 uniform int shadowRays        = 1;
 uniform vec3 lightPosition    = vec3(0, 4, 0);
-uniform float n               = 1.2;
 uniform uint time             = 42;
 
-uniform float roughness    = 0.68;
-uniform float transparency = 0.5;
-uniform float density      = 0.8;
-uniform int chessBoard[8*8*2];
+uniform float blackN            = 1.2;
+uniform float blackRoughness    = 0.68;
+uniform float blackTransparency = 0.5;
+uniform float blackDensity      = 0.8;
+uniform vec3 blackColor         = vec3(0.2, 0.2, 0.2);
+
+uniform float whiteN            = 1.2;
+uniform float whiteRoughness    = 0.68;
+uniform float whiteTransparency = 0.5;
+uniform float whiteDensity      = 0.8;
+uniform vec3 whiteColor         = vec3(0.8, 0.8, 0.8);
+
+uniform int chessBoard[8 * 8 * 2];
 
 
 // =================================================
 // materials
 // =================================================
-Material materialRed   = Material(vec3(1, 0, 0), n, roughness, transparency, density);
-Material materialGreen = Material(vec3(0, 1, 0), 1.4, roughness, transparency, density);
-Material materialBlue  = Material(vec3(0, 0, 1), 2.5, roughness, transparency, density);
-Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., roughness, 0., 0.2);
-Material materialWhite = Material(vec3(1, 1, 1), 1., roughness, 0., 1.);
-Material materialBlack = Material(vec3(0, 0, 0), 1.8, roughness, 0., 0.2);
+Material materialRed   = Material(vec3(1, 0, 0), 1.5, 0.5, 1., 0.);
+Material materialGray  = Material(vec3(0.2, 0.2, 0.2), 1., 0.5, 0., 0.2);
+Material materialWhite = Material(vec3(1, 1, 1), 1., 0.5, 0., 1.);
+Material materialBlack = Material(vec3(0, 0, 0), 1.8, 0.5, 0., 0.2);
+Material materialFigureBlack = Material(blackColor, blackN, blackRoughness, blackTransparency, blackDensity);
+Material materialFigureWhite = Material(whiteColor, whiteN, whiteRoughness, whiteTransparency, whiteDensity);
 
-Material materials[4] = { 
-    materialRed, 
-    materialGray, 
-    materialWhite,
-    materialBlack
-    };
+Material materials[6] = { materialRed, materialGray, materialWhite, materialBlack, materialFigureBlack, materialFigureWhite };
 
 // =================================================
 // constants
@@ -83,6 +86,8 @@ Material materials[4] = {
 #define MATERIAL_GRAY  1
 #define MATERIAL_WHITE 2
 #define MATERIAL_BLACK 3
+#define MATERIAL_FIGURE_BLACK 4
+#define MATERIAL_FIGURE_WHITE 5
 
 #define ORIGIN       vec3(0, 0, 0)
 #define EPSILON      0.00001
@@ -534,21 +539,21 @@ Hit intersectFigure(vec3 ro, vec3 rd, int figure_type, int color, float x, float
 
 HitInfo intersectFigures(vec3 ro, vec3 rd)
 {
-    float min_t    = 1000000;
-    Hit result = NO_HIT;
-    int matId = 0;
+    float min_t = 1000000;
+    Hit result  = NO_HIT;
+    int matId   = 0;
 
     for (int row = 0; row < 8; row++) {
         for (int col = 0; col < 8; col++) {
-            int figure_type = chessBoard[(row*8 + col)*2];
-            int color       = chessBoard[(row*8 + col)*2+1];
+            int figure_type = chessBoard[(row * 8 + col) * 2];
+            int color       = chessBoard[(row * 8 + col) * 2 + 1];
             float x         = col - 4;
             float z         = row - 4;
-            Hit hit = intersectFigure(ro, rd, figure_type, color, x, z);
+            Hit hit         = intersectFigure(ro, rd, figure_type, color, x, z);
             if (hit.t > EPSILON && hit.t < min_t) {
                 min_t  = hit.t;
                 result = hit;
-                matId = color == COLOR_WHITE ? MATERIAL_RED : MATERIAL_GRAY;
+                matId  = color == COLOR_WHITE ? MATERIAL_FIGURE_WHITE : MATERIAL_FIGURE_BLACK;
             }
         }
     }
@@ -589,7 +594,7 @@ HitInfo traceRay(vec3 ro, vec3 rd)
         if (hits[i].t < min_t) {
             min_t    = hits[i].t;
             result   = hits[i];
-            matId = materials[i];
+            matId    = materials[i];
             isLight  = isLights[i];
             hitIndex = i;
         }
@@ -597,8 +602,8 @@ HitInfo traceRay(vec3 ro, vec3 rd)
 
     // make chessboard pattern
     if (hitIndex == itemCount - 1) {
-        matId = MATERIAL_WHITE;
-        vec3 pos      = ro + rd * result.t;
+        matId    = MATERIAL_WHITE;
+        vec3 pos = ro + rd * result.t;
         if (int(floor(pos.x + 0.5)) % 2 == int(floor(pos.z + 0.5)) % 2) {
             matId = MATERIAL_BLACK;
         }
@@ -708,8 +713,8 @@ float hash12(vec2 p)
 vec2 randomSampleUnitCircle(vec2 st)
 {
     st.x += time;
-    float seed  = hash12(st);
-    float r     = sqrt(seed);
+    float seed = hash12(st);
+    float r    = sqrt(seed);
     st.y += time;
     float seed2 = hash12(vec2(st.y, st.x));
     float theta = 6.28318530718 * seed2;
@@ -753,10 +758,10 @@ float calculateShadow(vec3 pos)
 
         for (int i = 0; i < shadowRays; i++) {
             vec2 rsample = randomSampleUnitCircle(seed);
-            float r     = rsample.x * light.radius;
-            float theta = rsample.y;
-            float x     = r * cos(theta);
-            float y     = r * sin(theta);
+            float r      = rsample.x * light.radius;
+            float theta  = rsample.y;
+            float x      = r * cos(theta);
+            float y      = r * sin(theta);
 
             vec3 offset = perpLightDir1 * x + perpLightDir2 * y;
             vec3 rayDir = normalize(light.position + offset - pos);
@@ -786,10 +791,10 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
     // if light, I don't want any shading
     if (hitInfo.isLight) {
-        fPrimary  = vec4(materials[hitInfo.materialId].color, 1);
+        fPrimary    = vec4(materials[hitInfo.materialId].color, 1);
         fReflection = vec4(0.);
-        fAmbient  = vec4(0.);
-        fShadow   = vec3(0.);
+        fAmbient    = vec4(0.);
+        fShadow     = vec3(0.);
         return;
     }
 
@@ -799,14 +804,14 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         vec3 primaryPos = ro + rd * hit.t;
 
         Material primaryMaterial = materials[hitInfo.materialId];
-        float primaryShadow = calculateShadow(primaryPos + hit.normal * 0.001);
+        float primaryShadow      = calculateShadow(primaryPos + hit.normal * 0.001);
         primaryShadow *= 1 - primaryMaterial.transparency;
 
         vec3 color        = shade(hitInfo, primaryPos, -rd);
         vec3 primaryColor = primaryMaterial.color;
 
         HitInfo currentHit = hitInfo;
-        Material material = materials[currentHit.materialId];
+        Material material  = materials[currentHit.materialId];
         vec3 currentRo     = primaryPos;
         vec3 currentRd     = reflect(rd, currentHit.hit.normal);
         currentRo += 0.0001 * currentHit.hit.normal;
@@ -849,15 +854,15 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         vec3 refl_accum   = vec3(0);
         float refl_shadow = 0.;
         vec3 pos          = primaryPos;
-        for (int k = 1; k < 4; ++k) {
+        for (int k = 1; k < reflectionBounces; ++k) {
 
             refl *= 1. - material.density;
             if (refl < 0.01)
                 break;
 
             currentHit = traceRay(currentRo, currentRd);
-            material = materials[currentHit.materialId];
-            if (currentHit.hit.t < EPSILON){
+            material   = materials[currentHit.materialId];
+            if (currentHit.hit.t < EPSILON) {
                 refl_accum += texture(skybox, currentRd).xyz * refl;
                 break;
             }
@@ -893,7 +898,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         currentRd = refract(rd, currentHit.hit.normal, n); // lrd
         currentRo += 0.0001 * -currentHit.hit.normal;
-        float refr = 1* primaryMaterial.transparency;
+        float refr = 1 * primaryMaterial.transparency;
 
         float[20] refr_stack;
         refr_stack[0]   = 1.;
@@ -902,12 +907,12 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 refr_accum   = vec3(0);
         float refr_shadow = 0;
-        for (int k = 1; k < 12; ++k) {
+        for (int k = 1; k < refractionBounces; ++k) {
             if (refr < 0.0001 || refr_shadow > 0.99)
                 break;
 
             currentHit = traceRay(currentRo, currentRd);
-            material = materials[currentHit.materialId];
+            material   = materials[currentHit.materialId];
 
             if (currentHit.hit.t < EPSILON) {
                 refr_accum += texture(skybox, currentRd).xyz * refr;
@@ -932,23 +937,22 @@ void whatColorIsThere(vec3 ro, vec3 rd)
             currentRd = refract(currentRd, currentHit.hit.normal, n); // lrd
             currentRo = pos + 0.0001 * -currentHit.hit.normal;
             refr *= material.transparency;
-
         }
         refr_shadow = clamp(refr_shadow, 0., 1.);
         refl_shadow = clamp(refl_shadow, 0., 1.);
 
-        fPrimary = vec4(accum, 1);
+        fPrimary    = vec4(accum, 1);
         fReflection = vec4(refl_accum * reflection_coef * dinv, 1);
         fRefraction = vec4(refr_accum * transmission_coef, 1);
-        fAmbient = vec4(primaryColor * vec3(0.1), 1);
+        fAmbient    = vec4(primaryColor * vec3(0.1), 1);
 
         fShadow = vec3(primaryShadow, refl_shadow, refr_shadow);
     } else {
         fReflection = vec4(0);
         fRefraction = vec4(0);
-        fAmbient  = vec4(0);
-        fShadow   = vec3(0);
-        fPrimary  = vec4(texture(skybox, rd).rgb, 1.0);
+        fAmbient    = vec4(0);
+        fShadow     = vec3(0);
+        fPrimary    = vec4(texture(skybox, rd).rgb, 1.0);
     }
 }
 

@@ -29,26 +29,6 @@ bool UniformSynchronizer::syncUniforms(const UniformStore &store) {
         glProgramUniform3fv(m_program1, glGetUniformLocation(m_program1, "lightPosition"), 1, glm::value_ptr(store.lightPosition));
         significantChange = true;
     }
-    if (store.roughness != m_gpu_uniforms.roughness) {
-        m_gpu_uniforms.roughness = store.roughness;
-        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "roughness"), store.roughness);
-        significantChange = true;
-    }
-    if (store.transparency != m_gpu_uniforms.transparency) {
-        m_gpu_uniforms.transparency = store.transparency;
-        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "transparency"), store.transparency);
-        significantChange = true;
-    }
-    if (store.density != m_gpu_uniforms.density) {
-        m_gpu_uniforms.density = store.density;
-        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "density"), store.density);
-        significantChange = true;
-    }
-    if (store.n != m_gpu_uniforms.n) {
-        m_gpu_uniforms.n = store.n;
-        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "n"), store.n);
-        significantChange = true;
-    }
     if (store.time != m_gpu_uniforms.time) {
         m_gpu_uniforms.time = store.time;
         glProgramUniform1ui(m_program1, glGetUniformLocation(m_program1, "time"), store.time);
@@ -58,6 +38,75 @@ bool UniformSynchronizer::syncUniforms(const UniformStore &store) {
         glProgramUniform1iv(m_program1, glGetUniformLocation(m_program1, "chessBoard"), 8*8*2, store.chessBoard.data());
         significantChange = true;
     }
+    if (store.reflectionBounces != m_gpu_uniforms.reflectionBounces) {
+        m_gpu_uniforms.reflectionBounces = store.reflectionBounces;
+        glProgramUniform1i(m_program1, glGetUniformLocation(m_program1, "reflectionBounces"), store.reflectionBounces);
+        significantChange = true;
+    }
+    if (store.refractionBounces != m_gpu_uniforms.refractionBounces) {
+        m_gpu_uniforms.refractionBounces = store.refractionBounces;
+        glProgramUniform1i(m_program1, glGetUniformLocation(m_program1, "refractionBounces"), store.refractionBounces);
+        significantChange = true;
+    }
+    if (store.shadowRays != m_gpu_uniforms.shadowRays) {
+        m_gpu_uniforms.shadowRays = store.shadowRays;
+        glProgramUniform1i(m_program1, glGetUniformLocation(m_program1, "shadowRays"), store.shadowRays);
+        significantChange = true;
+    }
+
+
+    if (store.blackRoughness != m_gpu_uniforms.blackRoughness) {
+        m_gpu_uniforms.blackRoughness = store.blackRoughness;
+        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "blackRoughness"), store.blackRoughness);
+        significantChange = true;
+    }
+    if (store.blackTransparency != m_gpu_uniforms.blackTransparency) {
+        m_gpu_uniforms.blackTransparency = store.blackTransparency;
+        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "blackTransparency"), store.blackTransparency);
+        significantChange = true;
+    }
+    if (store.blackDensity != m_gpu_uniforms.blackDensity) {
+        m_gpu_uniforms.blackDensity = store.blackDensity;
+        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "blackDensity"), store.blackDensity);
+        significantChange = true;
+    }
+    if (store.blackN != m_gpu_uniforms.blackN) {
+        m_gpu_uniforms.blackN = store.blackN;
+        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "blackN"), store.blackN);
+        significantChange = true;
+    }
+    if (store.blackColor != m_gpu_uniforms.blackColor) {
+        m_gpu_uniforms.blackColor = store.blackColor;
+        glProgramUniform3fv(m_program1, glGetUniformLocation(m_program1, "blackColor"), 1, glm::value_ptr(store.blackColor));
+        significantChange = true;
+    }
+
+    if (store.whiteRoughness != m_gpu_uniforms.whiteRoughness) {
+        m_gpu_uniforms.whiteRoughness = store.whiteRoughness;
+        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "whiteRoughness"), store.whiteRoughness);
+        significantChange = true;
+    }
+    if (store.whiteTransparency != m_gpu_uniforms.whiteTransparency) {
+        m_gpu_uniforms.whiteTransparency = store.whiteTransparency;
+        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "whiteTransparency"), store.whiteTransparency);
+        significantChange = true;
+    }
+    if (store.whiteDensity != m_gpu_uniforms.whiteDensity) {
+        m_gpu_uniforms.whiteDensity = store.whiteDensity;
+        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "whiteDensity"), store.whiteDensity);
+        significantChange = true;
+    }
+    if (store.whiteN != m_gpu_uniforms.whiteN) {
+        m_gpu_uniforms.whiteN = store.whiteN;
+        glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "whiteN"), store.whiteN);
+        significantChange = true;
+    }
+    if (store.whiteColor != m_gpu_uniforms.whiteColor) {
+        m_gpu_uniforms.whiteColor = store.whiteColor;
+        glProgramUniform3fv(m_program1, glGetUniformLocation(m_program1, "whiteColor"), 1, glm::value_ptr(store.whiteColor));
+        significantChange = true;
+    }
+    
     return significantChange;
 }
 
@@ -66,10 +115,21 @@ void UniformSynchronizer::syncUniformsForce(UniformStore const& store) {
     glProgramUniform1i(m_program1, glGetUniformLocation(m_program1, "screenWidth"), store.screenWidth);
     glProgramUniform1i(m_program1, glGetUniformLocation(m_program1, "screenHeight"), store.screenHeight);
     glProgramUniform3fv(m_program1, glGetUniformLocation(m_program1, "lightPosition"), 1, glm::value_ptr(store.lightPosition));
-    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "roughness"), store.roughness);
-    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "transparency"), store.transparency);
-    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "density"), store.density);
-    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "n"), store.n);
     glProgramUniform1ui(m_program1, glGetUniformLocation(m_program1, "time"), store.time);
     glProgramUniform1iv(m_program1, glGetUniformLocation(m_program1, "chessBoard"), 8*8*2, store.chessBoard.data());
+    glProgramUniform1i(m_program1, glGetUniformLocation(m_program1, "reflectionBounces"), store.reflectionBounces);
+    glProgramUniform1i(m_program1, glGetUniformLocation(m_program1, "refractionBounces"), store.refractionBounces);
+    glProgramUniform1i(m_program1, glGetUniformLocation(m_program1, "shadowRays"), store.shadowRays);
+
+    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "blackRoughness"), store.blackRoughness);
+    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "blackTransparency"), store.blackTransparency);
+    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "blackDensity"), store.blackDensity);
+    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "blackN"), store.blackN);
+    glProgramUniform3fv(m_program1, glGetUniformLocation(m_program1, "blackColor"), 1, glm::value_ptr(store.blackColor));
+
+    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "whiteRoughness"), store.whiteRoughness);
+    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "whiteTransparency"), store.whiteTransparency);
+    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "whiteDensity"), store.whiteDensity);
+    glProgramUniform1f(m_program1, glGetUniformLocation(m_program1, "whiteN"), store.whiteN);
+    glProgramUniform3fv(m_program1, glGetUniformLocation(m_program1, "whiteColor"), 1, glm::value_ptr(store.whiteColor));
 }

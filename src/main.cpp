@@ -126,8 +126,6 @@ void mainloop(SDL_Window* window, OpenGLContext& oglCtx)
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
-        // ImGui::ShowDemoWindow(); // Show demo window! :)
-
 
         drawGui(uniforms, fps);
 

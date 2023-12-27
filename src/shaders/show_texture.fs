@@ -64,14 +64,12 @@ void blend()
 
     vec4 shadow = bilateralFilter();
     shadow      = vec4(1.) - shadow;
-    // vec4 shadow = vec4(1.);
 
     vec4 ambient    = texture(textureAmbient, texCoord);
     vec4 reflection = texture(textureReflection, texCoord);
     vec4 refraction = texture(textureRefraction, texCoord);
     vec4 primary    = texture(texturePrimary, texCoord);
 
-    // FragColor = refraction;
     FragColor = ambient + refraction * shadow.z + reflection * shadow.y + primary * shadow.x;
 }
 
