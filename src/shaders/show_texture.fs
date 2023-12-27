@@ -4,6 +4,7 @@ uniform sampler2D textureAmbient;
 uniform sampler2D textureReflection;
 uniform sampler2D textureRefraction;
 uniform sampler2D textureShadows;
+uniform sampler2D texturePrimary;
 
 out vec4 FragColor;
 
@@ -68,9 +69,10 @@ void blend()
     vec4 ambient    = texture(textureAmbient, texCoord);
     vec4 reflection = texture(textureReflection, texCoord);
     vec4 refraction = texture(textureRefraction, texCoord);
+    vec4 primary    = texture(texturePrimary, texCoord);
 
-    // FragColor = refraction*shadow.z;
-    FragColor = ambient + refraction * shadow.z + reflection * shadow.y * shadow.x;
+    FragColor = refraction;
+    // FragColor = ambient + refraction * shadow.z + reflection * shadow.y + primary * shadow.x;
 }
 
 

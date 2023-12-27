@@ -3,6 +3,7 @@ layout(location = 0) out vec3 fShadow;
 layout(location = 1) out vec4 fReflection;
 layout(location = 2) out vec4 fAmbient;
 layout(location = 3) out vec4 fRefraction;
+layout(location = 4) out vec4 fPrimary;
 
 in vec4 gl_FragCoord;
 
@@ -173,14 +174,14 @@ Hit intersectCylinder(vec3 ro, vec3 rd, vec3 center, vec3 direction, float radiu
     float t2 = (-k1 + h) / k2;
     float y2 = baoc + t2 * bard;
 
-    bool good1 = y1 > 0.0 && y1 < baba;
+    bool good1 = y1 > 0.0 && y1 < baba && t1 > EPSILON;
     bool good2 = y2 > 0.0 && y2 < baba;
 
     if (good1) {
         return Hit(t1, (oc + t1 * rd - ba * y1 / baba) / ra, false);
     }
     if (good2) {
-        return Hit(t2, (oc + t2 * rd - ba * y2 / baba) / ra, true);
+        return Hit(t2, -(oc + t2 * rd - ba * y2 / baba) / ra, true);
     }
     return NO_HIT; // no intersection
 }
@@ -415,7 +416,7 @@ Hit intersectPawn(vec3 ro, vec3 rd, float x, float z)
     Hit hits[3];
 
     hits[0] = intersectUpperCappedCylinder(ro, rd, vec3(x, 0.0001, z), vec3(0, 1, 0), 0.3, 0.1);
-    hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.9);
+    hits[1] = intersectCappedCylinder(ro, rd, vec3(x, 0.1, z), vec3(0, 1, 0), 0.1, 0.7);
     hits[2] = intersectSphere(ro, rd, vec3(x, 0.9, z), 0.2);
 
     return findClosestHit(hits);
@@ -785,8 +786,9 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
     // if light, I don't want any shading
     if (hitInfo.isLight) {
-        fReflection = vec4(materials[hitInfo.materialId].color, 1);
-        fAmbient  = vec4(materials[hitInfo.materialId].color, 1);
+        fPrimary  = vec4(materials[hitInfo.materialId].color, 1);
+        fReflection = vec4(0.);
+        fAmbient  = vec4(0.);
         fShadow   = vec3(0.);
         return;
     }
@@ -900,7 +902,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 refr_accum   = vec3(0);
         float refr_shadow = 0;
-        for (int k = 1; k < 8; ++k) {
+        for (int k = 1; k < 2; ++k) {
             if (refr < 0.0001 || refr_shadow > 0.99)
                 break;
 
@@ -934,7 +936,8 @@ void whatColorIsThere(vec3 ro, vec3 rd)
         }
         refr_shadow = clamp(refr_shadow, 0., 1.);
 
-        fReflection = vec4(accum + refl_accum * reflection_coef * dinv, 1);
+        fPrimary = vec4(accum, 1);
+        fReflection = vec4(refl_accum * reflection_coef * dinv, 1);
         fRefraction = vec4(refr_accum * transmission_coef, 1);
         fAmbient = vec4(primaryColor * vec3(0.1), 1);
 
@@ -942,8 +945,9 @@ void whatColorIsThere(vec3 ro, vec3 rd)
     } else {
         fReflection = vec4(0);
         fRefraction = vec4(0);
-        fAmbient  = vec4(texture(skybox, rd).rgb, 1.0);
+        fAmbient  = vec4(0);
         fShadow   = vec3(0);
+        fPrimary  = vec4(texture(skybox, rd).rgb, 1.0);
     }
 }
 

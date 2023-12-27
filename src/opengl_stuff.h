@@ -45,6 +45,7 @@ private:
     GLuint m_reflectionTexture;
     GLuint m_refractionTexture;
     GLuint m_ambientTexture;
+    GLuint m_primaryTexture;
     GLuint m_skybox;
 
     std::chrono::high_resolution_clock::time_point m_lastTime;

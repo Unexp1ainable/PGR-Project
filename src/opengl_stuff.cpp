@@ -157,8 +157,14 @@ void OpenGLContext::createGBuffer()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, m_refractionTexture, 0);
 
-    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-    glDrawBuffers(4, drawBuffers);
+    glGenTextures(1, &m_primaryTexture);
+    glBindTexture(GL_TEXTURE_2D, m_primaryTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, MAX_WINDOW_WIDTH, MAX_WINDOW_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, m_primaryTexture, 0);
+
+    GLenum drawBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 };
+    glDrawBuffers(5, drawBuffers);
 
     auto status = glCheckNamedFramebufferStatus(m_fbo, GL_FRAMEBUFFER);
     if (glCheckNamedFramebufferStatus(m_fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -235,9 +241,9 @@ void OpenGLContext::useRenderProgram() const
     glBindVertexArray(m_vao);
     glUseProgram(m_renderPrg);
 
-    glActiveTexture(GL_TEXTURE4);
+    glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_CUBE_MAP, m_skybox);
-    glUniform1i(glGetUniformLocation(m_renderPrg, "skybox"), 4);
+    glUniform1i(glGetUniformLocation(m_renderPrg, "skybox"), 5);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, VAO_DATA.size());
     glBindVertexArray(0);
@@ -273,6 +279,12 @@ void OpenGLContext::showTexture(bool significantChange)
     glBindTexture(GL_TEXTURE_2D, m_refractionTexture);
     // Bind the shader program and set the texture uniform
     glUniform1i(glGetUniformLocation(m_showTexturePrg, "textureRefraction"), 3);
+
+    // Bind the texture to texture unit 4
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, m_primaryTexture);
+    // Bind the shader program and set the texture uniform
+    glUniform1i(glGetUniformLocation(m_showTexturePrg, "texturePrimary"), 4);
 
 
     if (!significantChange) {
