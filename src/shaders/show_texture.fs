@@ -14,9 +14,7 @@ float sigmaL              = 3;
 
 #define EPS 1e-5
 
-
-// float lum(in vec4 color) { return length(color.xyz); }
-
+// https://github.com/tranvansang/bilateral-filter
 vec4 bilateralFilter()
 {
     float sigS = max(sigmaS, EPS);
@@ -57,8 +55,8 @@ vec4 bilateralFilter()
     return sumC / sumW;
 }
 
-
-void blend()
+// filter shadows and combine with other textures
+void main()
 {
     vec2 texCoord = gl_FragCoord.xy / textureSize(textureAmbient, 0);
 
@@ -71,19 +69,4 @@ void blend()
     vec4 primary    = texture(texturePrimary, texCoord);
 
     FragColor = ambient + refraction * shadow.z + reflection * shadow.y + primary * shadow.x;
-}
-
-
-void main()
-{
-    blend();
-    // vec2 texCoord = gl_FragCoord.xy / textureSize(textureAmbient,0);
-    // FragColor = texture(textureSpecDiff, texCoord);
-
-    // vec4 ambient = texture(textureAmbient, texCoord);
-    // vec4 filtered = texture(textureShadows, texCoord);
-    // vec4 filtered = bilateralFilter();
-    // vec4 filtered = customFilter();
-    // FragColor = vec4(filtered.y, filtered.y, filtered.y, 1.0) + ambient;
-    // FragColor = vec4(ts.x/2., 0, 0.0, 1.0);
 }
