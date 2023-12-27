@@ -71,8 +71,8 @@ void blend()
     vec4 refraction = texture(textureRefraction, texCoord);
     vec4 primary    = texture(texturePrimary, texCoord);
 
-    FragColor = refraction;
-    // FragColor = ambient + refraction * shadow.z + reflection * shadow.y + primary * shadow.x;
+    // FragColor = refraction;
+    FragColor = ambient + refraction * shadow.z + reflection * shadow.y + primary * shadow.x;
 }
 
 

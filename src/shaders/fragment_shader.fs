@@ -893,7 +893,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         currentRd = refract(rd, currentHit.hit.normal, n); // lrd
         currentRo += 0.0001 * -currentHit.hit.normal;
-        float refr = 1* material.transparency;
+        float refr = 1* primaryMaterial.transparency;
 
         float[20] refr_stack;
         refr_stack[0]   = 1.;
@@ -902,7 +902,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         vec3 refr_accum   = vec3(0);
         float refr_shadow = 0;
-        for (int k = 1; k < 2; ++k) {
+        for (int k = 1; k < 12; ++k) {
             if (refr < 0.0001 || refr_shadow > 0.99)
                 break;
 
@@ -935,6 +935,7 @@ void whatColorIsThere(vec3 ro, vec3 rd)
 
         }
         refr_shadow = clamp(refr_shadow, 0., 1.);
+        refl_shadow = clamp(refl_shadow, 0., 1.);
 
         fPrimary = vec4(accum, 1);
         fReflection = vec4(refl_accum * reflection_coef * dinv, 1);
